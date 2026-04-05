@@ -5,7 +5,7 @@ import {
 import { useState } from "react";
 import { WindRose } from "./WindRose";
 import { API } from "../config";
-import { dirLabel } from "../utils/wind";
+import { dirLabel, windDirToCompass } from "../utils/wind";
 import { formatAge } from "../utils/time";
 import type { Site, HourlyEvaluation, Verdict, Balise, BaliseWind } from "../types";
 
@@ -63,7 +63,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
     dayGroups.get(day)!.push(ev);
   }
 
-  const meteoUrl = `https://open-meteo.com/en/docs/meteofrance-api#latitude=${site.latitude}&longitude=${site.longitude}`;
+  const meteoUrl = `https://open-meteo.com/en/docs/meteofrance-api#latitude=${site.latitude}&longitude=${site.longitude}&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,precipitation,rain,weather_code,cloud_cover,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&wind_speed_unit=kmh&timezone=auto&forecast_days=2`;
   const siteUrl = siteSourceUrl(site);
 
   const bReleve = nearestBalise?.releves?.[0];
@@ -104,6 +104,15 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
             size={100}
             currentWind={evaluations[0]?.evaluation.wind_compass}
             baliseWind={baliseWindData}
+            altWind={
+              evaluations[0]?.weather.wind_speed_alt != null
+                ? {
+                    direction: evaluations[0].weather.wind_direction_alt!,
+                    speed: evaluations[0].weather.wind_speed_alt!,
+                    altitude: evaluations[0].weather.wind_alt_meters!,
+                  }
+                : null
+            }
           />
           <div className="site-meta">
             {site.landing && (
@@ -183,7 +192,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
               {new Date(day + "T00:00").toLocaleDateString("fr-FR", {
                 weekday: "long", day: "numeric", month: "long",
               })}
-              <SourceLink href={meteoUrl} label="Météo-France AROME" />
+              <SourceLink href={meteoUrl} label="MF AROME · vent 10m sol" />
             </div>
             {hours.map((ev) => {
               const hour = ev.weather.time.split("T")[1].slice(0, 5);
@@ -197,11 +206,16 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
                   >
                     <span className="hour-time">{hour}</span>
                     <div className="hour-metrics">
-                      <span title="Vent (Météo-France AROME)">
+                      <span title="Vent à 10m sol (Météo-France AROME)">
                         <Wind size={13} /> {ev.weather.wind_speed.toFixed(0)}
                       </span>
-                      <span title="Rafales (Météo-France AROME)">↑{ev.weather.wind_gusts.toFixed(0)}</span>
-                      <span title="Direction (Météo-France AROME)">{ev.evaluation.wind_compass}</span>
+                      <span title="Rafales à 10m sol (Météo-France AROME)">↑{ev.weather.wind_gusts.toFixed(0)}</span>
+                      <span title="Direction à 10m sol (Météo-France AROME)">{ev.evaluation.wind_compass}</span>
+                      {ev.weather.wind_speed_alt != null && (
+                        <span className="alt-wind-badge" title={`Vent altitude déco ~${ev.weather.wind_alt_meters}m (Météo-Parapente WRF)`}>
+                          ▲{ev.weather.wind_speed_alt.toFixed(0)} {windDirToCompass(ev.weather.wind_direction_alt ?? 0)}
+                        </span>
+                      )}
                       <span title="Pluie (Météo-France AROME)">
                         <Droplets size={13} /> {ev.weather.rain > 0 ? `${ev.weather.rain.toFixed(1)}` : "—"}
                       </span>
@@ -222,7 +236,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
                     <div className="hour-details">
                       {bReleve && (
                         <div className="wind-comparison">
-                          <div className="wind-compare-title">Comparaison vent</div>
+                          <div className="wind-compare-title">Comparaison vent (10m sol)</div>
                           <div className="wind-compare-row">
                             <span className="wc-label" style={{ color: "#3b82f6" }}>Prévision MF</span>
                             <span className="wc-value">
@@ -239,11 +253,48 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
                             </span>
                             <SourceLink href={bUrl} label="FFVL" />
                           </div>
-                          {Math.abs(ev.weather.wind_speed - bReleve.vmoy) > 8 && (
-                            <div className="wc-warning">
-                              ⚠ Écart important entre prévision et mesure réelle
+                          {ev.weather.wind_speed_alt != null && (
+                            <div className="wind-compare-row">
+                              <span className="wc-label" style={{ color: "#8b5cf6" }}>▲ Alt. déco ~{ev.weather.wind_alt_meters}m</span>
+                              <span className="wc-value">
+                                {ev.weather.wind_speed_alt.toFixed(0)} km/h {windDirToCompass(ev.weather.wind_direction_alt ?? 0)}
+                              </span>
+                              <SourceLink href={API.MP_BASE_URL} label="Météo-Parapente" />
                             </div>
                           )}
+                          {(() => {
+                            const warnings: string[] = [];
+                            const speedDiff = Math.abs(ev.weather.wind_speed - bReleve.vmoy);
+                            const forecastDir = ev.evaluation.wind_compass;
+                            const baliseDir = dirLabel(bReleve.direction);
+                            const dirMatch = forecastDir === baliseDir;
+                            const adjacentDirs: Record<string, string[]> = {
+                              N: ["NW", "NE"], NE: ["N", "E"], E: ["NE", "SE"], SE: ["E", "S"],
+                              S: ["SE", "SW"], SW: ["S", "W"], W: ["SW", "NW"], NW: ["W", "N"],
+                            };
+                            const dirClose = dirMatch || (adjacentDirs[forecastDir]?.includes(baliseDir) ?? false);
+
+                            if (!dirClose) {
+                              warnings.push(`Direction opposée : prévision ${forecastDir} vs balise ${baliseDir}`);
+                            }
+                            if (speedDiff > 5) {
+                              warnings.push(`Écart vitesse : ${speedDiff.toFixed(0)} km/h entre prévision et balise`);
+                            }
+                            if (bReleve.vmax > 25) {
+                              warnings.push(`Rafales balise ${bReleve.vmax} km/h — prudence !`);
+                            }
+                            if (bReleve.vmax - bReleve.vmin > 20) {
+                              warnings.push(`Vent très irrégulier : min ${bReleve.vmin} / max ${bReleve.vmax} km/h`);
+                            }
+
+                            if (warnings.length === 0) return null;
+                            const isSevere = !dirClose || bReleve.vmax > 30 || speedDiff > 10;
+                            return (
+                              <div className={isSevere ? "wc-danger" : "wc-warning"}>
+                                {warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                       {ev.evaluation.checks.map((check, i) => (

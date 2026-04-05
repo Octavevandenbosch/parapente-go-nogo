@@ -1,10 +1,10 @@
 export const API = {
   SPOTAIR_SPOTS: "/api/spotair/spots/spots-get.php",
   SPOTAIR_BALISES: "/api/spotair/balises/releves-get.php",
-  SPOTAIR_KEY_SPOTS: "nyBtvIV/HEFiDMzZDwgbUA==",
-  SPOTAIR_KEY_BALISES: "dMK0l++8QOSZtBKr4zpq6w==",
+  SPOTAIR_KEY_SPOTS: import.meta.env.VITE_SPOTAIR_KEY_SPOTS ?? "",
+  SPOTAIR_KEY_BALISES: import.meta.env.VITE_SPOTAIR_KEY_BALISES ?? "",
   SPOTAIR_WEBCAMS: "/api/spotair/webcams/webcams-get.php",
-  SPOTAIR_KEY_WEBCAMS: "n5xT2BZ42FtM8kNXlkQ8tA==",
+  SPOTAIR_KEY_WEBCAMS: import.meta.env.VITE_SPOTAIR_KEY_WEBCAMS ?? "",
 
   PGE_SITES: "/api/pge/getBoundingBoxSites.php",
   FORECAST: "/api/meteo/v1/meteofrance",
@@ -15,6 +15,10 @@ export const API = {
     `https://www.spotair.mobi/wind/${provider}/${id}`,
   PGE_BASE_URL: "https://paraglidingearth.com",
   SPOTAIR_BASE_URL: "https://www.spotair.mobi",
+
+  MP_STATUS: "/api/mp/status.php",
+  MP_DATA: "/api/mp/data.php",
+  MP_BASE_URL: "https://meteo-parapente.com",
 } as const;
 
 export const THRESHOLDS = {

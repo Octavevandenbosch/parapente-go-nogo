@@ -1,5 +1,5 @@
 import { API } from "../config";
-import { bboxFromCenter, distanceKm } from "../utils/geo";
+import { bboxFromCenter, bboxToSpotairParams, distanceKm } from "../utils/geo";
 import { decodeOrientations } from "../utils/wind";
 import type { Site, Landing, Balise, Webcam } from "../types";
 
@@ -40,7 +40,7 @@ export async function fetchSpotairSites(
   lng: number,
   radiusKm = 25
 ): Promise<Site[]> {
-  const box = bboxFromCenter(lat, lng, radiusKm);
+  const box = bboxToSpotairParams(bboxFromCenter(lat, lng, radiusKm));
   const body = new URLSearchParams({ ...box, pratique: "1" });
 
   const resp = await fetch(API.SPOTAIR_SPOTS, {
@@ -139,7 +139,7 @@ export async function fetchBalises(
   lng: number,
   radiusKm = 30
 ): Promise<Balise[]> {
-  const box = bboxFromCenter(lat, lng, radiusKm);
+  const box = bboxToSpotairParams(bboxFromCenter(lat, lng, radiusKm));
   const body = new URLSearchParams(box);
 
   const resp = await fetch(API.SPOTAIR_BALISES, {

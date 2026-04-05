@@ -16,11 +16,16 @@ const HOURLY_PARAMS = [
   "pressure_msl",
 ];
 
+export interface ForecastResult {
+  hourly: HourlyWeather[];
+  utcOffsetSeconds: number;
+}
+
 export async function fetchForecast(
   lat: number,
   lng: number,
-  days = TIMING.FORECAST_DAYS
-): Promise<HourlyWeather[]> {
+  days = TIMING.FORECAST_DAYS,
+): Promise<ForecastResult> {
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lng.toString(),
@@ -36,8 +41,9 @@ export async function fetchForecast(
   const data = await resp.json();
   const hourly = data.hourly;
   const times: string[] = hourly.time;
+  const utcOffsetSeconds: number = data.utc_offset_seconds ?? 0;
 
-  return times.map((t, i) => ({
+  const hours = times.map((t, i) => ({
     time: t,
     temperature: hourly.temperature_2m[i],
     humidity: hourly.relative_humidity_2m[i],
@@ -52,6 +58,8 @@ export async function fetchForecast(
     wind_gusts: hourly.wind_gusts_10m[i],
     pressure: hourly.pressure_msl[i],
   }));
+
+  return { hourly: hours, utcOffsetSeconds };
 }
 
 export function filterFlyableHours(

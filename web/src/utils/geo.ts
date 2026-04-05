@@ -13,14 +13,30 @@ export function distanceKm(
   return Math.sqrt(dLat * dLat + dLng * dLng);
 }
 
-export function bboxFromCenter(lat: number, lng: number, radiusKm: number) {
+export interface BBox {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+export function bboxFromCenter(lat: number, lng: number, radiusKm: number): BBox {
   const latD = radiusKm / 111;
   const lngD = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
   return {
-    nord: (lat + latD).toString(),
-    sud: (lat - latD).toString(),
-    est: (lng + lngD).toString(),
-    ouest: (lng - lngD).toString(),
+    north: lat + latD,
+    south: lat - latD,
+    east: lng + lngD,
+    west: lng - lngD,
+  };
+}
+
+export function bboxToSpotairParams(bbox: BBox): Record<string, string> {
+  return {
+    nord: bbox.north.toString(),
+    sud: bbox.south.toString(),
+    est: bbox.east.toString(),
+    ouest: bbox.west.toString(),
   };
 }
 

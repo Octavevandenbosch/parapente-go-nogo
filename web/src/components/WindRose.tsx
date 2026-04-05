@@ -1,5 +1,5 @@
 import type { CompassDirection, BaliseWind } from "../types";
-import { dirLabel } from "../utils/wind";
+import { dirLabel, windDirToCompass } from "../utils/wind";
 
 const DIRECTIONS: { dir: CompassDirection; angle: number }[] = [
   { dir: "N", angle: -90 },
@@ -20,11 +20,18 @@ const DIR_TO_ANGLE: Record<string, number> = {
 const SECTOR_HALF = 22.5;
 const GAP_DEG = 1.5;
 
+interface AltWind {
+  direction: number;
+  speed: number;
+  altitude: number;
+}
+
 interface WindRoseProps {
   orientations: Partial<Record<string, number>>;
   size?: number;
   currentWind?: string;
   baliseWind?: BaliseWind | null;
+  altWind?: AltWind | null;
 }
 
 function sectorPath(
@@ -81,13 +88,16 @@ function Arrow({
   );
 }
 
-export function WindRose({ orientations, size = 120, currentWind, baliseWind }: WindRoseProps) {
+export function WindRose({ orientations, size = 120, currentWind, baliseWind, altWind }: WindRoseProps) {
   const cx = size / 2;
   const cy = size / 2;
   const r = size / 2 - 18;
-  const meteoAngle = currentWind ? DIR_TO_ANGLE[currentWind] : null;
 
-  const meteoVal = currentWind ? (orientations[currentWind] ?? 0) : 0;
+  const forecastDir = altWind ? windDirToCompass(altWind.direction) : currentWind;
+  const forecastAngle = altWind ? (altWind.direction - 90) : (currentWind ? DIR_TO_ANGLE[currentWind] : null);
+  const forecastAlt = altWind?.altitude ?? null;
+
+  const meteoVal = forecastDir ? (orientations[forecastDir] ?? 0) : 0;
   const meteoMatch = meteoVal === 2 ? "good" : meteoVal === 1 ? "ok" : "bad";
 
   const baliseCompass = baliseWind ? dirLabel(baliseWind.direction) : null;
@@ -128,7 +138,7 @@ export function WindRose({ orientations, size = 120, currentWind, baliseWind }: 
           const labelX = cx + Math.cos(rad) * labelDist;
           const labelY = cy + Math.sin(rad) * labelDist;
 
-          const isHighlight = currentWind === dir || baliseCompass === dir;
+          const isHighlight = forecastDir === dir || baliseCompass === dir;
 
           return (
             <g key={dir}>
@@ -146,7 +156,7 @@ export function WindRose({ orientations, size = 120, currentWind, baliseWind }: 
                 fontSize={val > 0 ? 11 : 10}
                 fontWeight={isHighlight ? 800 : val === 2 ? 700 : 400}
                 fill={
-                  currentWind === dir
+                  forecastDir === dir
                     ? "#60a5fa"
                     : baliseCompass === dir
                       ? "#fb923c"
@@ -179,10 +189,10 @@ export function WindRose({ orientations, size = 120, currentWind, baliseWind }: 
         )}
 
         {/* Forecast wind arrow */}
-        {meteoAngle != null && (
+        {forecastAngle != null && (
           <Arrow
             cx={cx} cy={cy}
-            angleDeg={meteoAngle}
+            angleDeg={forecastAngle}
             length={r * 0.85}
             color="#3b82f6"
             label=""
@@ -202,11 +212,12 @@ export function WindRose({ orientations, size = 120, currentWind, baliseWind }: 
           <span className="wrl-swatch wrl-swatch-marginal" />
           <span>Acceptable</span>
         </div>
-        {currentWind && (
+        {forecastDir && (
           <div className="windrose-legend-row">
             <span className="wrl-arrow-dot" style={{ background: "#3b82f6" }} />
             <span>
-              Prévision {currentWind}
+              Prévision {forecastDir}
+              {forecastAlt ? ` (${forecastAlt}m)` : " 10m sol"}
               {meteoMatch === "good" ? " ✓" : meteoMatch === "ok" ? " ~" : " ✗"}
             </span>
           </div>

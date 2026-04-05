@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { geocode } from "../services/geocoding";
 import { fetchSites } from "../services/sites";
 import { fetchSpotairSites, fetchBalises, fetchWebcams } from "../services/spotair";
 import { fetchForecast, filterFlyableHours } from "../services/weather";
+import { enrichWithWindgram } from "../services/meteoparapente";
 import { evaluate } from "../services/gonogo";
 import { siteKey, deduplicateSites } from "../utils/geo";
 import { currentHourVerdict } from "../utils/time";
@@ -21,6 +22,7 @@ interface SearchResult extends SearchState {
   balisesData: Balise[];
   webcams: Webcam[];
   searchParams: { lat: number; lng: number; radius: number } | null;
+  lastForecastUpdate: Date | null;
 }
 
 export function useSearch() {
@@ -40,6 +42,9 @@ export function useSearch() {
   } | null>(null);
   const [lastBalisesData, setLastBalisesData] = useState<Balise[]>([]);
   const [lastWebcams, setLastWebcams] = useState<Webcam[]>([]);
+  const [lastForecastUpdate, setLastForecastUpdate] = useState<Date | null>(null);
+  const sitesRef = useRef<Site[]>([]);
+  const forecastIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const search = useCallback(async (query: string, radius: number) => {
     setState((prev) => ({
@@ -95,8 +100,13 @@ export function useSearch() {
         allSites.map(async (site) => {
           const key = siteKey(site);
           try {
-            const forecast = await fetchForecast(site.latitude, site.longitude);
+            const { hourly: forecast, utcOffsetSeconds } = await fetchForecast(site.latitude, site.longitude);
             const flyable = filterFlyableHours(forecast);
+
+            if (site.altitude && site.altitude > 200) {
+              await enrichWithWindgram(flyable, site, utcOffsetSeconds);
+            }
+
             const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => ({
               weather: w,
               evaluation: evaluate(site, w),
@@ -109,6 +119,9 @@ export function useSearch() {
           }
         })
       );
+
+      sitesRef.current = allSites;
+      setLastForecastUpdate(new Date());
 
       setState({
         location: loc,
@@ -127,11 +140,64 @@ export function useSearch() {
     }
   }, []);
 
+  const refreshForecasts = useCallback(async () => {
+    const sites = sitesRef.current;
+    if (!sites.length) return;
+
+    const newEvals = new Map<string, HourlyEvaluation[]>();
+    const newVerdicts = new Map<string, Verdict>();
+
+    await Promise.all(
+      sites.map(async (site) => {
+        const key = siteKey(site);
+        try {
+          const { hourly: forecast, utcOffsetSeconds } = await fetchForecast(site.latitude, site.longitude);
+          const flyable = filterFlyableHours(forecast);
+
+          if (site.altitude && site.altitude > 200) {
+            await enrichWithWindgram(flyable, site, utcOffsetSeconds);
+          }
+
+          const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => ({
+            weather: w,
+            evaluation: evaluate(site, w),
+          }));
+          newEvals.set(key, hourlyEvals);
+          newVerdicts.set(key, currentHourVerdict(hourlyEvals));
+        } catch {
+          newEvals.set(key, []);
+          newVerdicts.set(key, "NO-GO");
+        }
+      })
+    );
+
+    setLastForecastUpdate(new Date());
+    setState((prev) => ({
+      ...prev,
+      siteEvals: newEvals,
+      siteVerdicts: newVerdicts,
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (forecastIntervalRef.current) {
+      clearInterval(forecastIntervalRef.current);
+      forecastIntervalRef.current = null;
+    }
+    if (sitesRef.current.length > 0) {
+      forecastIntervalRef.current = setInterval(refreshForecasts, 3_600_000);
+    }
+    return () => {
+      if (forecastIntervalRef.current) clearInterval(forecastIntervalRef.current);
+    };
+  }, [state.sites, refreshForecasts]);
+
   const result: SearchResult = {
     ...state,
     balisesData: lastBalisesData,
     webcams: lastWebcams,
     searchParams: lastSearchParams,
+    lastForecastUpdate,
   };
 
   return { ...result, search };

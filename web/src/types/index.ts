@@ -59,6 +59,9 @@ export interface HourlyWeather {
   wind_direction: number;
   wind_gusts: number;
   pressure: number;
+  wind_speed_alt?: number;
+  wind_direction_alt?: number;
+  wind_alt_meters?: number;
 }
 
 export type CheckLevel = "ok" | "warn" | "fail";

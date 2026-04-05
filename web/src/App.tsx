@@ -14,6 +14,7 @@ export default function App() {
   const {
     location, sites, siteEvals, siteVerdicts,
     isLoading, error, search, balisesData, webcams, searchParams,
+    lastForecastUpdate,
   } = useSearch();
 
   const { balises, lastUpdate, isRefreshing, refresh, startPolling, reset } = useBaliseRefresh();
@@ -80,6 +81,15 @@ export default function App() {
                   {sites.length} sites · {balises.length} balises
                 </span>
               </div>
+              {lastForecastUpdate && (
+                <div className="balise-live-bar">
+                  <span className="live-dot" style={{ background: "var(--accent)" }} />
+                  <span className="live-label">
+                    Météo AROME · màj {lastForecastUpdate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    <span style={{ opacity: 0.6 }}> · auto 1h</span>
+                  </span>
+                </div>
+              )}
               {balises.length > 0 && (
                 <div className="balise-live-bar">
                   <span className={`live-dot ${isRefreshing ? "refreshing" : ""}`} />

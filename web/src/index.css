@@ -901,6 +901,16 @@ body {
   gap: 2px;
 }
 
+.alt-wind-badge {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6 !important;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-weight: 600;
+  font-size: 11px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
 .hour-details {
   padding: 8px 16px 12px 55px;
   display: flex;
@@ -1043,12 +1053,29 @@ body {
 
 .wc-warning {
   margin-top: 6px;
-  padding: 4px 8px;
+  padding: 6px 8px;
   font-size: 12px;
   color: var(--marginal);
   background: rgba(245, 158, 11, 0.08);
   border-radius: 4px;
   border-left: 3px solid var(--marginal);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wc-danger {
+  margin-top: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nogo);
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid var(--nogo);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 /* Footer */

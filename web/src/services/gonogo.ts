@@ -33,37 +33,58 @@ export function evaluate(site: Site, weather: HourlyWeather): Evaluation {
   if (goodDirs.includes(windCompass)) {
     checks.push({
       level: "ok",
-      message: `Vent ${windCompass} (${weather.wind_direction}°) — orientation idéale`,
+      message: `Vent 10m sol ${windCompass} (${weather.wind_direction}°) — orientation idéale`,
     });
   } else if (okDirs.includes(windCompass)) {
     checks.push({
       level: "warn",
-      message: `Vent ${windCompass} (${weather.wind_direction}°) — acceptable mais pas idéale`,
+      message: `Vent 10m sol ${windCompass} (${weather.wind_direction}°) — acceptable mais pas idéale`,
     });
   } else {
     checks.push({
       level: "fail",
-      message: `Vent ${windCompass} (${weather.wind_direction}°) — incompatible avec le déco`,
+      message: `Vent 10m sol ${windCompass} (${weather.wind_direction}°) — incompatible avec le déco`,
     });
   }
 
   if (weather.wind_speed > THRESHOLDS.WIND_SPEED_MAX) {
-    checks.push({ level: "fail", message: `Vent ${weather.wind_speed} km/h — trop fort` });
+    checks.push({ level: "fail", message: `Vent 10m sol ${weather.wind_speed} km/h — trop fort` });
   } else if (weather.wind_speed > THRESHOLDS.WIND_SPEED_IDEAL_MAX) {
-    checks.push({ level: "warn", message: `Vent ${weather.wind_speed} km/h — fort, prudence` });
+    checks.push({ level: "warn", message: `Vent 10m sol ${weather.wind_speed} km/h — fort, prudence` });
   } else if (weather.wind_speed < THRESHOLDS.WIND_SPEED_IDEAL_MIN) {
-    checks.push({ level: "warn", message: `Vent ${weather.wind_speed} km/h — très faible` });
+    checks.push({ level: "warn", message: `Vent 10m sol ${weather.wind_speed} km/h — très faible` });
   } else {
-    checks.push({ level: "ok", message: `Vent ${weather.wind_speed} km/h — idéal` });
+    checks.push({ level: "ok", message: `Vent 10m sol ${weather.wind_speed} km/h — idéal` });
   }
 
   const gustSpread = weather.wind_gusts - weather.wind_speed;
   if (gustSpread > THRESHOLDS.GUST_SPREAD_MAX) {
-    checks.push({ level: "fail", message: `Rafales ${weather.wind_gusts} km/h — trop turbulent` });
+    checks.push({ level: "fail", message: `Rafales 10m sol ${weather.wind_gusts} km/h — trop turbulent` });
   } else if (gustSpread > 10) {
-    checks.push({ level: "warn", message: `Rafales ${weather.wind_gusts} km/h — agité` });
+    checks.push({ level: "warn", message: `Rafales 10m sol ${weather.wind_gusts} km/h — agité` });
   } else {
-    checks.push({ level: "ok", message: `Rafales ${weather.wind_gusts} km/h — modérées` });
+    checks.push({ level: "ok", message: `Rafales 10m sol ${weather.wind_gusts} km/h — modérées` });
+  }
+
+  if (weather.wind_speed_alt != null && weather.wind_alt_meters != null) {
+    const altDir: CompassDirection = windDirToCompass(weather.wind_direction_alt ?? 0);
+    const altLabel = `~${weather.wind_alt_meters}m`;
+
+    if (weather.wind_speed_alt > THRESHOLDS.WIND_SPEED_MAX) {
+      checks.push({ level: "fail", message: `Vent altitude déco ${altLabel} : ${weather.wind_speed_alt.toFixed(0)} km/h ${altDir} — trop fort` });
+    } else if (weather.wind_speed_alt > THRESHOLDS.WIND_SPEED_IDEAL_MAX) {
+      checks.push({ level: "warn", message: `Vent altitude déco ${altLabel} : ${weather.wind_speed_alt.toFixed(0)} km/h ${altDir} — fort` });
+    } else {
+      checks.push({ level: "ok", message: `Vent altitude déco ${altLabel} : ${weather.wind_speed_alt.toFixed(0)} km/h ${altDir}` });
+    }
+
+    const altGoodDirs = bestOrientations(orientations);
+    const altOkDirs = acceptableOrientations(orientations);
+    if (!altOkDirs.includes(altDir)) {
+      checks.push({ level: "warn", message: `Direction altitude déco ${altDir} — incompatible avec le site` });
+    } else if (!altGoodDirs.includes(altDir)) {
+      checks.push({ level: "warn", message: `Direction altitude déco ${altDir} — acceptable mais pas idéale` });
+    }
   }
 
   if (THUNDERSTORM_CODES.has(weather.weather_code)) {

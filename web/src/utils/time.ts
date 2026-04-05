@@ -1,5 +1,33 @@
 import type { HourlyEvaluation, Verdict } from "../types";
 
+export function localHourToUtc(
+  timeStr: string,
+  utcOffsetS: number,
+): { utcDate: string; utcHour: string } {
+  const [datePart, timePart] = timeStr.split("T");
+  const localHour = parseInt(timePart.split(":")[0], 10);
+  const offsetH = utcOffsetS / 3600;
+  const utcHour = localHour - offsetH;
+
+  if (utcHour < 0) {
+    const d = new Date(datePart + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() - 1);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    return { utcDate: `${y}${m}${dd}`, utcHour: `${String(utcHour + 24).padStart(2, "0")}:00` };
+  }
+  if (utcHour >= 24) {
+    const d = new Date(datePart + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    return { utcDate: `${y}${m}${dd}`, utcHour: `${String(utcHour - 24).padStart(2, "0")}:00` };
+  }
+  return { utcDate: datePart.replace(/-/g, ""), utcHour: `${String(utcHour).padStart(2, "0")}:00` };
+}
+
 export function currentHourVerdict(evals: HourlyEvaluation[]): Verdict {
   if (!evals.length) return "NO-GO";
 

@@ -1,18 +1,8 @@
 import { API } from "../config";
+import { bboxFromCenter } from "../utils/geo";
 import type { Site, Landing } from "../types";
 
 const ORIENTATION_LABELS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
-
-function bboxFromCenter(lat: number, lng: number, radiusKm: number) {
-  const latDelta = radiusKm / 111.0;
-  const lngDelta = radiusKm / (111.0 * Math.cos((lat * Math.PI) / 180));
-  return {
-    north: lat + latDelta,
-    south: lat - latDelta,
-    east: lng + lngDelta,
-    west: lng - lngDelta,
-  };
-}
 
 function textContent(el: Element | null, tag: string): string {
   return el?.querySelector(tag)?.textContent?.trim() ?? "";

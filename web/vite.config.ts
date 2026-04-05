@@ -30,6 +30,12 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/spotair/, ""),
         secure: true,
       },
+      "/api/mp": {
+        target: "https://data0.meteo-parapente.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/mp/, ""),
+        secure: true,
+      },
     },
   },
 })
