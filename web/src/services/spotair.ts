@@ -1,50 +1,14 @@
-import type { Site, Landing, CompassDirection } from "../types";
-
-const SPOTS_URL = "/api/spotair/spots/spots-get.php";
-const BALISES_URL = "/api/spotair/balises/releves-get.php";
-
-const SPOTS_KEY = "nyBtvIV/HEFiDMzZDwgbUA==";
-const BALISES_KEY = "dMK0l++8QOSZtBKr4zpq6w==";
-
-const ORIENTATION_BITS: { bit: number; dir: CompassDirection }[] = [
-  { bit: 1, dir: "N" },
-  { bit: 2, dir: "NE" },
-  { bit: 4, dir: "E" },
-  { bit: 8, dir: "SE" },
-  { bit: 16, dir: "S" },
-  { bit: 32, dir: "SW" },
-  { bit: 64, dir: "W" },
-  { bit: 128, dir: "NW" },
-];
-
-function decodeOrientations(
-  favo: number,
-  defavo: number | null
-): Partial<Record<string, number>> {
-  const hasDefavo = defavo != null && defavo > 0;
-  const result: Partial<Record<string, number>> = {};
-  for (const { bit, dir } of ORIENTATION_BITS) {
-    if (favo & bit) result[dir] = 2;
-    else if (hasDefavo && !(defavo! & bit)) result[dir] = 1;
-    else result[dir] = 0;
-  }
-  return result;
-}
-
-function getInfoValue(
-  infos: Array<{ code: string; langue: string; valeur: string }>,
-  code: string
-): string {
-  const entry = infos?.find((i) => i.code === code && i.langue !== "default");
-  return entry?.valeur ?? "";
-}
+import { API } from "../config";
+import { bboxFromCenter, distanceKm } from "../utils/geo";
+import { decodeOrientations } from "../utils/wind";
+import type { Site, Landing, Balise, Webcam } from "../types";
 
 interface SpotairSpot {
   id: number;
   pratique: number;
-  type: number; // 1=takeoff, 2=landing, 3=training, 4=winch
+  type: number;
   orientations: number;
-  orientations_defavo: number;
+  orientations_defavo: number | null;
   niveau: number;
   nom: string | null;
   latitude: number;
@@ -63,41 +27,12 @@ interface SpotairSpot {
   provider_id?: string;
 }
 
-export interface Balise {
-  provider_key: string;
-  balise_id: string;
-  nom: string;
-  latitude: number;
-  longitude: number;
-  altitude: number;
-  description: string | null;
-  active: number;
-  releves: Array<{
-    date_releve: number;
-    direction: number;
-    direction_instantanee: number;
-    vmin: number;
-    vmoy: number;
-    vmax: number;
-    tvmin: number;
-    tvmoy: number;
-    tvmax: number;
-    temperature: number | null;
-    point_rosee: number | null;
-    pluie: number | null;
-    humidite: number | null;
-  }>;
-}
-
-function bbox(lat: number, lng: number, radiusKm: number) {
-  const latD = radiusKm / 111;
-  const lngD = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
-  return {
-    nord: (lat + latD).toString(),
-    sud: (lat - latD).toString(),
-    est: (lng + lngD).toString(),
-    ouest: (lng - lngD).toString(),
-  };
+function getInfoValue(
+  infos: Array<{ code: string; langue: string; valeur: string }>,
+  code: string
+): string {
+  const entry = infos?.find((i) => i.code === code && i.langue !== "default");
+  return entry?.valeur ?? "";
 }
 
 export async function fetchSpotairSites(
@@ -105,12 +40,12 @@ export async function fetchSpotairSites(
   lng: number,
   radiusKm = 25
 ): Promise<Site[]> {
-  const box = bbox(lat, lng, radiusKm);
+  const box = bboxFromCenter(lat, lng, radiusKm);
   const body = new URLSearchParams({ ...box, pratique: "1" });
 
-  const resp = await fetch(SPOTS_URL, {
+  const resp = await fetch(API.SPOTAIR_SPOTS, {
     method: "POST",
-    headers: { "X-Spotair-Apikey": SPOTS_KEY },
+    headers: { "X-Spotair-Apikey": API.SPOTAIR_KEY_SPOTS },
     body,
   });
   if (!resp.ok) throw new Error(`SpotAir spots failed: ${resp.status}`);
@@ -128,9 +63,7 @@ export async function fetchSpotairSites(
 
     if (spot.type === 2) {
       const desc =
-        spot.descriptions?.fr ??
-        spot.descriptions?.[spot.descriptions?.primary] ??
-        "";
+        spot.descriptions?.fr ?? spot.descriptions?.[spot.descriptions?.primary] ?? "";
       landingsByArea.set(`${spot.latitude.toFixed(2)}-${spot.longitude.toFixed(2)}`, {
         name,
         latitude: spot.latitude,
@@ -144,13 +77,11 @@ export async function fetchSpotairSites(
 
     const orientations = decodeOrientations(
       spot.orientations ?? 0,
-      spot.orientations_defavo ?? 0
+      spot.orientations_defavo
     );
 
     const desc =
-      spot.descriptions?.fr ??
-      spot.descriptions?.[spot.descriptions?.primary] ??
-      "";
+      spot.descriptions?.fr ?? spot.descriptions?.[spot.descriptions?.primary] ?? "";
 
     const infos = spot.infos ?? spot.children?.[0]?.infos ?? [];
     const access = getInfoValue(infos, "acces");
@@ -182,7 +113,6 @@ export async function fetchSpotairSites(
     });
   }
 
-  // Second pass: match landings to takeoffs that don't have one yet
   if (landingsByArea.size > 0 && takeoffs.some((t) => !t.landing)) {
     const landings = [...landingsByArea.values()];
     for (const t of takeoffs) {
@@ -209,12 +139,12 @@ export async function fetchBalises(
   lng: number,
   radiusKm = 30
 ): Promise<Balise[]> {
-  const box = bbox(lat, lng, radiusKm);
+  const box = bboxFromCenter(lat, lng, radiusKm);
   const body = new URLSearchParams(box);
 
-  const resp = await fetch(BALISES_URL, {
+  const resp = await fetch(API.SPOTAIR_BALISES, {
     method: "POST",
-    headers: { "X-Spotair-Apikey": BALISES_KEY },
+    headers: { "X-Spotair-Apikey": API.SPOTAIR_KEY_BALISES },
     body,
   });
   if (!resp.ok) throw new Error(`SpotAir balises failed: ${resp.status}`);
@@ -224,5 +154,33 @@ export async function fetchBalises(
 
   return (json.data ?? []).filter(
     (b: Balise) => b.active === 1 && b.releves?.length > 0
+  );
+}
+
+let webcamCache: Webcam[] | null = null;
+
+export async function fetchWebcams(
+  lat: number,
+  lng: number,
+  radiusKm = 30,
+): Promise<Webcam[]> {
+  if (!webcamCache) {
+    const body = new URLSearchParams({ sortie: "json" });
+    const resp = await fetch(API.SPOTAIR_WEBCAMS, {
+      method: "POST",
+      headers: { "X-Spotair-Apikey": API.SPOTAIR_KEY_WEBCAMS },
+      body,
+    });
+    if (!resp.ok) throw new Error(`SpotAir webcams failed: ${resp.status}`);
+    const json = await resp.json();
+    if (json.code !== 0) throw new Error(json.msg);
+    webcamCache = (json.data ?? []) as Webcam[];
+  }
+
+  return webcamCache.filter((w) =>
+    (w.pratiques & 1) === 1 &&
+    w.statut_enligne === "E" &&
+    w.url_image &&
+    distanceKm(lat, lng, w.latitude, w.longitude) <= radiusKm
   );
 }

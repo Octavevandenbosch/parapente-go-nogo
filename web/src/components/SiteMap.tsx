@@ -1,9 +1,9 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { useEffect } from "react";
-import type { Site, Verdict } from "../types";
-import type { Balise } from "../services/spotair";
+import { dirLabel } from "../utils/wind";
 import { MapLegend } from "./MapLegend";
+import type { Site, Verdict, Balise, Webcam } from "../types";
 
 import "leaflet/dist/leaflet.css";
 
@@ -69,23 +69,58 @@ function createBaliseIcon(balise: Balise) {
   });
 }
 
-function MapController({
-  center,
-  zoom,
-}: {
-  center: [number, number];
-  zoom: number;
-}) {
+function createWebcamIcon(direction: number | null, fov: number | null) {
+  const s = 60;
+  const cx = s / 2;
+  const cy = s / 2;
+  const dotR = 8;
+
+  let cone = "";
+  if (direction != null) {
+    const half = ((fov ?? 60) / 2) * Math.PI / 180;
+    const coneLen = s / 2 - 2;
+    const dirRad = (direction - 90) * Math.PI / 180;
+    const x1 = cx + Math.cos(dirRad - half) * coneLen;
+    const y1 = cy + Math.sin(dirRad - half) * coneLen;
+    const x2 = cx + Math.cos(dirRad + half) * coneLen;
+    const y2 = cy + Math.sin(dirRad + half) * coneLen;
+    const largeArc = (fov ?? 60) > 180 ? 1 : 0;
+    cone = `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${coneLen} ${coneLen} 0 ${largeArc} 1 ${x2} ${y2} Z"
+      fill="rgba(139,92,246,0.25)" stroke="#8b5cf6" stroke-width="1" stroke-opacity="0.5"/>`;
+  }
+
+  return L.divIcon({
+    className: "",
+    html: `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+      ${cone}
+      <circle cx="${cx}" cy="${cy}" r="${dotR}" fill="#8b5cf6" stroke="white" stroke-width="2"/>
+      <text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="central"
+        font-size="9" fill="white">📷</text>
+    </svg>`,
+    iconSize: [s, s],
+    iconAnchor: [cx, cy],
+  });
+}
+
+const landingIcon = L.divIcon({
+  className: "",
+  html: `<div style="
+    width:22px;height:22px;border-radius:4px;
+    background:#3b82f6;border:2px solid white;
+    box-shadow:0 2px 6px rgba(0,0,0,.3);
+    display:flex;align-items:center;justify-content:center;
+    color:white;font-weight:700;font-size:11px;
+  ">P</div>`,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
+
+function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
   useEffect(() => {
     map.setView(center, zoom);
   }, [center, zoom, map]);
   return null;
-}
-
-function dirLabel(deg: number): string {
-  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return dirs[Math.round(deg / 45) % 8];
 }
 
 interface SiteMapProps {
@@ -96,21 +131,15 @@ interface SiteMapProps {
   selectedSite: Site | null;
   onSelectSite: (site: Site) => void;
   balises: Balise[];
+  webcams: Webcam[];
 }
 
 export function SiteMap({
-  center,
-  zoom,
-  sites,
-  siteVerdicts,
-  selectedSite,
-  onSelectSite,
-  balises,
+  center, zoom, sites, siteVerdicts, selectedSite, onSelectSite, balises, webcams,
 }: SiteMapProps) {
   return (
     <MapContainer
-      center={center}
-      zoom={zoom}
+      center={center} zoom={zoom}
       style={{ width: "100%", height: "100%" }}
       zoomControl={false}
     >
@@ -146,8 +175,7 @@ export function SiteMap({
                 <br />
                 <span style={{ fontSize: 11, color: "#888" }}>
                   {new Date(r.date_releve * 1000).toLocaleTimeString("fr-FR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
+                    hour: "2-digit", minute: "2-digit",
                   })}
                   {" · "}
                   {b.altitude}m
@@ -199,6 +227,110 @@ export function SiteMap({
           </Marker>
         );
       })}
+
+      {sites
+        .filter((s) => s.landing?.latitude != null && s.landing?.longitude != null)
+        .reduce<{ key: string; landing: NonNullable<Site["landing"]>; siteName: string; ffvlId?: number }[]>(
+          (acc, site) => {
+            const lk = `${site.landing!.latitude!.toFixed(4)}-${site.landing!.longitude!.toFixed(4)}`;
+            if (!acc.some((a) => a.key === lk)) {
+              acc.push({ key: lk, landing: site.landing!, siteName: site.name, ffvlId: site.ffvl_id });
+            }
+            return acc;
+          }, []
+        )
+        .map(({ key, landing, siteName, ffvlId }) => (
+          <Marker
+            key={`landing-${key}`}
+            position={[landing.latitude!, landing.longitude!]}
+            icon={landingIcon}
+            opacity={0.85}
+          >
+            <Popup>
+              <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                <strong>🅿️ {landing.name || "Atterrissage"}</strong>
+                {landing.altitude && <span> — {landing.altitude}m</span>}
+                <br />
+                <span style={{ fontSize: 11, color: "#666" }}>
+                  Atterro de {siteName}
+                </span>
+                {landing.description && (
+                  <>
+                    <br />
+                    <span style={{ fontSize: 11, color: "#888" }}>
+                      {landing.description.slice(0, 120)}
+                    </span>
+                  </>
+                )}
+                {ffvlId && (
+                  <>
+                    <br />
+                    <a
+                      href={`https://federation.ffvl.fr/terrain/${ffvlId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 11, color: "#8b5cf6" }}
+                    >
+                      Fiche FFVL ↗
+                    </a>
+                  </>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        ))
+      }
+
+      {webcams.map((w) => (
+        <Marker
+          key={`webcam-${w.id}`}
+          position={[w.latitude, w.longitude]}
+          icon={createWebcamIcon(w.direction, w.champ)}
+          opacity={0.9}
+        >
+          <Popup maxWidth={340} minWidth={280}>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              <strong>📷 {w.nom}</strong>
+              {w.altitude > 0 && <span> — {w.altitude}m</span>}
+              {w.direction != null && (
+                <span style={{ fontSize: 11, color: "#888" }}>
+                  {" "}· pointe {dirLabel(w.direction)} ({w.direction}°)
+                </span>
+              )}
+              {w.description && (
+                <>
+                  <br />
+                  <span style={{ fontSize: 11, color: "#666" }}>{w.description}</span>
+                </>
+              )}
+              <br />
+              <img
+                src={w.url_image}
+                alt={w.nom}
+                style={{
+                  width: "100%", maxWidth: 300, borderRadius: 6,
+                  marginTop: 6, border: "1px solid #ddd",
+                }}
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+              {w.url_page && (
+                <>
+                  <br />
+                  <a
+                    href={w.url_page}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 11, color: "#8b5cf6" }}
+                  >
+                    Page webcam ↗
+                  </a>
+                </>
+              )}
+            </div>
+          </Popup>
+        </Marker>
+      ))}
     </MapContainer>
   );
 }

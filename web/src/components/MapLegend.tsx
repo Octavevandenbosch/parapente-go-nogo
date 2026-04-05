@@ -30,6 +30,16 @@ export function MapLegend() {
               <span className="legend-dot" style={{ background: "#6b7280" }} />
               <span>En attente de données</span>
             </div>
+            <div className="legend-item">
+              <span style={{
+                width: 16, height: 16, borderRadius: 3,
+                background: "#3b82f6", border: "2px solid white",
+                boxShadow: "0 1px 3px rgba(0,0,0,.3)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "white", fontWeight: 700, fontSize: 9, flexShrink: 0,
+              }}>P</span>
+              <span>Atterrissage</span>
+            </div>
           </div>
           <div className="legend-section">
             <div className="legend-title">Balises météo (temps réel)</div>
@@ -44,6 +54,19 @@ export function MapLegend() {
             <div className="legend-item">
               <span className="legend-balise" style={{ borderColor: "#ef4444", color: "#ef4444" }}>35</span>
               <span>&gt; 25 km/h — fort</span>
+            </div>
+          </div>
+          <div className="legend-section">
+            <div className="legend-title">Webcams</div>
+            <div className="legend-item">
+              <span style={{
+                width: 18, height: 18, borderRadius: "50%",
+                background: "#8b5cf6", border: "2px solid white",
+                boxShadow: "0 1px 3px rgba(0,0,0,.3)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 10, flexShrink: 0,
+              }}>📷</span>
+              <span>Caméra déco parapente</span>
             </div>
           </div>
           <div className="legend-section">

@@ -1,3 +1,5 @@
+export type CompassDirection = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
+
 export interface GeoLocation {
   name: string;
   latitude: number;
@@ -84,4 +86,51 @@ export interface SiteAnalysis {
   hourlyEvaluations: HourlyEvaluation[];
 }
 
-export type CompassDirection = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
+export interface BaliseReleve {
+  date_releve: number;
+  direction: number;
+  direction_instantanee: number;
+  vmin: number;
+  vmoy: number;
+  vmax: number;
+  tvmin: number;
+  tvmoy: number;
+  tvmax: number;
+  temperature: number | null;
+  point_rosee: number | null;
+  pluie: number | null;
+  humidite: number | null;
+}
+
+export interface Balise {
+  provider_key: string;
+  balise_id: string;
+  nom: string;
+  latitude: number;
+  longitude: number;
+  altitude: number;
+  description: string | null;
+  active: number;
+  releves: BaliseReleve[];
+}
+
+export interface BaliseWind {
+  direction: number;
+  speed: number;
+  name: string;
+}
+
+export interface Webcam {
+  id: number;
+  nom: string;
+  latitude: number;
+  longitude: number;
+  altitude: number;
+  direction: number | null;
+  champ: number | null;
+  url_image: string;
+  url_page: string | null;
+  description: string | null;
+  statut_enligne: string;
+  pratiques: number;
+}

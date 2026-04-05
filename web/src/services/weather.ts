@@ -1,6 +1,5 @@
+import { API, TIMING } from "../config";
 import type { HourlyWeather } from "../types";
-
-const FORECAST_URL = "/api/meteo/v1/meteofrance";
 
 const HOURLY_PARAMS = [
   "temperature_2m",
@@ -20,7 +19,7 @@ const HOURLY_PARAMS = [
 export async function fetchForecast(
   lat: number,
   lng: number,
-  days = 2
+  days = TIMING.FORECAST_DAYS
 ): Promise<HourlyWeather[]> {
   const params = new URLSearchParams({
     latitude: lat.toString(),
@@ -31,7 +30,7 @@ export async function fetchForecast(
     wind_speed_unit: "kmh",
   });
 
-  const resp = await fetch(`${FORECAST_URL}?${params}`);
+  const resp = await fetch(`${API.FORECAST}?${params}`);
   if (!resp.ok) throw new Error(`Open-Meteo failed: ${resp.status}`);
 
   const data = await resp.json();
@@ -57,8 +56,8 @@ export async function fetchForecast(
 
 export function filterFlyableHours(
   forecasts: HourlyWeather[],
-  startHour = 8,
-  endHour = 19
+  startHour = TIMING.FLYABLE_START_HOUR,
+  endHour = TIMING.FLYABLE_END_HOUR
 ): HourlyWeather[] {
   return forecasts.filter((f) => {
     const hour = parseInt(f.time.split("T")[1].split(":")[0], 10);

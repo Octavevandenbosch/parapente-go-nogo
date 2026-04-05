@@ -1,20 +1,13 @@
 import {
-  Mountain,
-  MapPin,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Wind,
-  Droplets,
-  Eye,
-  Cloud,
-  Thermometer,
-  AlertTriangle,
+  Mountain, MapPin, ExternalLink, ChevronDown, ChevronUp,
+  Wind, Droplets, Eye, Cloud, Thermometer, AlertTriangle,
 } from "lucide-react";
 import { useState } from "react";
 import { WindRose } from "./WindRose";
-import type { Site, HourlyEvaluation, Verdict } from "../types";
-import type { Balise } from "../services/spotair";
+import { API } from "../config";
+import { dirLabel } from "../utils/wind";
+import { formatAge } from "../utils/time";
+import type { Site, HourlyEvaluation, Verdict, Balise, BaliseWind } from "../types";
 
 interface SitePanelProps {
   site: Site;
@@ -45,25 +38,16 @@ function CheckIcon({ level }: { level: string }) {
   return <span className="check-fail">✗</span>;
 }
 
-function dirLabel(deg: number): string {
-  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return dirs[Math.round(deg / 45) % 8];
-}
-
-function meteoSourceUrl(lat: number, lng: number): string {
-  return `https://open-meteo.com/en/docs/meteofrance-api#latitude=${lat}&longitude=${lng}`;
-}
-
-function baliseSourceUrl(b: Balise): string {
-  return `https://www.spotair.mobi/wind/${b.provider_key}/${b.balise_id}`;
-}
-
 function siteSourceUrl(site: Site): string {
   if (site.source === "FFVL / SpotAir" && site.ffvl_id) {
-    return `https://federation.ffvl.fr/terrain/${site.ffvl_id}`;
+    return API.FFVL_TERRAIN_URL(site.ffvl_id);
   }
-  if (site.source === "FFVL / SpotAir") return "https://www.spotair.mobi";
-  return site.pge_link || "https://paraglidingearth.com";
+  if (site.source === "FFVL / SpotAir") return API.SPOTAIR_BASE_URL;
+  return site.pge_link || API.PGE_BASE_URL;
+}
+
+function sourceLabel(site: Site): string {
+  return site.source === "FFVL / SpotAir" ? "FFVL" : "PGE";
 }
 
 export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistKm, onClose }: SitePanelProps) {
@@ -79,16 +63,19 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
     dayGroups.get(day)!.push(ev);
   }
 
-  const meteoUrl = meteoSourceUrl(site.latitude, site.longitude);
+  const meteoUrl = `https://open-meteo.com/en/docs/meteofrance-api#latitude=${site.latitude}&longitude=${site.longitude}`;
+  const siteUrl = siteSourceUrl(site);
 
   const bReleve = nearestBalise?.releves?.[0];
-  const baliseWindData = bReleve ? {
+  const baliseWindData: BaliseWind | null = bReleve ? {
     direction: bReleve.direction,
     speed: bReleve.vmoy,
     name: nearestBalise!.nom,
   } : null;
 
-  const bUrl = nearestBalise ? baliseSourceUrl(nearestBalise) : "";
+  const bUrl = nearestBalise
+    ? API.SPOTAIR_BALISE_URL(nearestBalise.provider_key, nearestBalise.balise_id)
+    : "";
 
   return (
     <div className="site-panel">
@@ -99,7 +86,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
             <h2>{site.name}</h2>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {site.altitude && <span className="site-alt">{site.altitude}m</span>}
-              <a href={siteSourceUrl(site)} target="_blank" rel="noopener noreferrer"
+              <a href={siteUrl} target="_blank" rel="noopener noreferrer"
                 className={`source-pill ${site.source === "FFVL / SpotAir" ? "source-ffvl" : "source-pge"}`}
                 style={{ textDecoration: "none" }}>
                 {site.source === "FFVL / SpotAir" ? "FFVL" : "ParaglidingEarth"} ↗
@@ -123,14 +110,14 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
               <div className="meta-item">
                 <MapPin size={14} />
                 <span>Atterro : {site.landing.name || "—"}{site.landing.altitude ? ` (${site.landing.altitude}m)` : ""}</span>
-                <SourceLink href={siteSourceUrl(site)} label={site.source === "FFVL / SpotAir" ? "FFVL" : "PGE"} />
+                <SourceLink href={siteUrl} label={sourceLabel(site)} />
               </div>
             )}
             {site.description && (
               <div className="meta-item">
                 <AlertTriangle size={14} />
                 <span>{site.description.slice(0, 150)}</span>
-                <SourceLink href={siteSourceUrl(site)} label={site.source === "FFVL / SpotAir" ? "FFVL" : "PGE"} />
+                <SourceLink href={siteUrl} label={sourceLabel(site)} />
               </div>
             )}
             {site.pge_link && (
@@ -144,7 +131,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
         {site.flight_rules && (
           <div className="flight-rules">
             <strong>Règles :</strong> {site.flight_rules.slice(0, 200)}{" "}
-            <SourceLink href={siteSourceUrl(site)} label={site.source === "FFVL / SpotAir" ? "FFVL" : "PGE"} />
+            <SourceLink href={siteUrl} label={sourceLabel(site)} />
           </div>
         )}
 
@@ -157,10 +144,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
 
       {nearestBalise && bReleve && (() => {
         const speedColor = bReleve.vmoy <= 15 ? "var(--go)" : bReleve.vmoy <= 25 ? "var(--marginal)" : "var(--nogo)";
-        const ageSeconds = Math.floor(Date.now() / 1000 - bReleve.date_releve);
-        const ageMin = Math.floor(ageSeconds / 60);
-        const ageLabel = ageMin < 1 ? "< 1 min" : ageMin < 60 ? `${ageMin} min` : `${Math.floor(ageMin / 60)}h${ageMin % 60}`;
-        const isStale = ageMin > 30;
+        const { label: ageLabel, isStale } = formatAge(bReleve.date_releve);
         return (
           <div className="balise-panel">
             <div className="balise-header">

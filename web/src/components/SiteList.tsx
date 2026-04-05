@@ -1,3 +1,5 @@
+import { siteKey } from "../utils/geo";
+import { currentHourLabel, goCountToday } from "../utils/time";
 import type { Site, Verdict, HourlyEvaluation } from "../types";
 
 interface SiteListProps {
@@ -6,47 +8,6 @@ interface SiteListProps {
   siteEvals: Map<string, HourlyEvaluation[]>;
   selectedSite: Site | null;
   onSelectSite: (site: Site) => void;
-}
-
-function siteKey(s: Site) {
-  return `${s.latitude}-${s.longitude}-${s.name}`;
-}
-
-function currentHourLabel(evals: HourlyEvaluation[]): string | null {
-  if (!evals.length) return null;
-  const now = new Date();
-  const currentHour = now.getHours();
-  const todayStr = now.toISOString().split("T")[0];
-
-  const match = evals.find((e) => {
-    const [date, time] = e.weather.time.split("T");
-    const hour = parseInt(time.split(":")[0], 10);
-    return date === todayStr && hour === currentHour;
-  });
-
-  if (match) {
-    return `${currentHour}h`;
-  }
-
-  const next = evals.find((e) => {
-    const [date, time] = e.weather.time.split("T");
-    const hour = parseInt(time.split(":")[0], 10);
-    return date === todayStr && hour > currentHour;
-  });
-
-  if (next) {
-    const h = parseInt(next.weather.time.split("T")[1].split(":")[0], 10);
-    return `${h}h`;
-  }
-
-  return null;
-}
-
-function goCountToday(evals: HourlyEvaluation[]): number {
-  const todayStr = new Date().toISOString().split("T")[0];
-  return evals.filter(
-    (e) => e.weather.time.startsWith(todayStr) && e.evaluation.verdict === "GO"
-  ).length;
 }
 
 export function SiteList({

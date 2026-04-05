@@ -1,6 +1,5 @@
+import { API } from "../config";
 import type { Site, Landing } from "../types";
-
-const PGE_API_URL = "/api/pge/getBoundingBoxSites.php";
 
 const ORIENTATION_LABELS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
 
@@ -15,18 +14,15 @@ function bboxFromCenter(lat: number, lng: number, radiusKm: number) {
   };
 }
 
-function parseFloat_(val: string | null | undefined): number | null {
-  if (!val) return null;
-  const n = parseFloat(val);
-  return isNaN(n) ? null : n;
-}
-
 function textContent(el: Element | null, tag: string): string {
   return el?.querySelector(tag)?.textContent?.trim() ?? "";
 }
 
 function numContent(el: Element | null, tag: string): number | null {
-  return parseFloat_(el?.querySelector(tag)?.textContent?.trim());
+  const val = el?.querySelector(tag)?.textContent?.trim();
+  if (!val) return null;
+  const n = parseFloat(val);
+  return isNaN(n) ? null : n;
 }
 
 function parseLanding(doc: Document): Landing | null {
@@ -57,7 +53,7 @@ export async function fetchSites(
     style: "detailled",
   });
 
-  const resp = await fetch(`${PGE_API_URL}?${params}`);
+  const resp = await fetch(`${API.PGE_SITES}?${params}`);
   if (!resp.ok) throw new Error(`ParaglidingEarth API failed: ${resp.status}`);
 
   const text = await resp.text();

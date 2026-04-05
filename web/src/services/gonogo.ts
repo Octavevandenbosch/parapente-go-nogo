@@ -1,31 +1,6 @@
-import type {
-  Site,
-  HourlyWeather,
-  Evaluation,
-  Check,
-  Verdict,
-  CompassDirection,
-} from "../types";
-
-const WIND_SPEED_MAX = 30;
-const WIND_SPEED_IDEAL_MAX = 25;
-const WIND_SPEED_IDEAL_MIN = 5;
-const GUST_SPREAD_MAX = 15;
-const VISIBILITY_MIN = 1500;
-const CLOUD_COVER_MAX = 85;
-const CLOUD_BASE_MIN = 300;
-
-const THUNDERSTORM_CODES = new Set([95, 96, 99]);
-const RAIN_CODES = new Set([51, 53, 55, 61, 63, 65, 80, 81, 82]);
-
-const COMPASS_DIRS: CompassDirection[] = [
-  "N", "NE", "E", "SE", "S", "SW", "W", "NW",
-];
-
-function windDirToCompass(degrees: number): CompassDirection {
-  const idx = Math.round(degrees / 45) % 8;
-  return COMPASS_DIRS[idx];
-}
+import { THRESHOLDS, THUNDERSTORM_CODES, RAIN_CODES } from "../config";
+import { windDirToCompass } from "../utils/wind";
+import type { Site, HourlyWeather, Evaluation, Check, Verdict, CompassDirection } from "../types";
 
 function bestOrientations(
   orientations: Partial<Record<string, number>>
@@ -51,7 +26,7 @@ export function evaluate(site: Site, weather: HourlyWeather): Evaluation {
   const checks: Check[] = [];
   const orientations = site.orientations;
 
-  const windCompass = windDirToCompass(weather.wind_direction);
+  const windCompass: CompassDirection = windDirToCompass(weather.wind_direction);
   const goodDirs = bestOrientations(orientations);
   const okDirs = acceptableOrientations(orientations);
 
@@ -72,44 +47,23 @@ export function evaluate(site: Site, weather: HourlyWeather): Evaluation {
     });
   }
 
-  if (weather.wind_speed > WIND_SPEED_MAX) {
-    checks.push({
-      level: "fail",
-      message: `Vent ${weather.wind_speed} km/h — trop fort`,
-    });
-  } else if (weather.wind_speed > WIND_SPEED_IDEAL_MAX) {
-    checks.push({
-      level: "warn",
-      message: `Vent ${weather.wind_speed} km/h — fort, prudence`,
-    });
-  } else if (weather.wind_speed < WIND_SPEED_IDEAL_MIN) {
-    checks.push({
-      level: "warn",
-      message: `Vent ${weather.wind_speed} km/h — très faible`,
-    });
+  if (weather.wind_speed > THRESHOLDS.WIND_SPEED_MAX) {
+    checks.push({ level: "fail", message: `Vent ${weather.wind_speed} km/h — trop fort` });
+  } else if (weather.wind_speed > THRESHOLDS.WIND_SPEED_IDEAL_MAX) {
+    checks.push({ level: "warn", message: `Vent ${weather.wind_speed} km/h — fort, prudence` });
+  } else if (weather.wind_speed < THRESHOLDS.WIND_SPEED_IDEAL_MIN) {
+    checks.push({ level: "warn", message: `Vent ${weather.wind_speed} km/h — très faible` });
   } else {
-    checks.push({
-      level: "ok",
-      message: `Vent ${weather.wind_speed} km/h — idéal`,
-    });
+    checks.push({ level: "ok", message: `Vent ${weather.wind_speed} km/h — idéal` });
   }
 
   const gustSpread = weather.wind_gusts - weather.wind_speed;
-  if (gustSpread > GUST_SPREAD_MAX) {
-    checks.push({
-      level: "fail",
-      message: `Rafales ${weather.wind_gusts} km/h — trop turbulent`,
-    });
+  if (gustSpread > THRESHOLDS.GUST_SPREAD_MAX) {
+    checks.push({ level: "fail", message: `Rafales ${weather.wind_gusts} km/h — trop turbulent` });
   } else if (gustSpread > 10) {
-    checks.push({
-      level: "warn",
-      message: `Rafales ${weather.wind_gusts} km/h — agité`,
-    });
+    checks.push({ level: "warn", message: `Rafales ${weather.wind_gusts} km/h — agité` });
   } else {
-    checks.push({
-      level: "ok",
-      message: `Rafales ${weather.wind_gusts} km/h — modérées`,
-    });
+    checks.push({ level: "ok", message: `Rafales ${weather.wind_gusts} km/h — modérées` });
   }
 
   if (THUNDERSTORM_CODES.has(weather.weather_code)) {
@@ -119,18 +73,14 @@ export function evaluate(site: Site, weather: HourlyWeather): Evaluation {
   }
 
   const hasRain =
-    RAIN_CODES.has(weather.weather_code) ||
-    THUNDERSTORM_CODES.has(weather.weather_code);
+    RAIN_CODES.has(weather.weather_code) || THUNDERSTORM_CODES.has(weather.weather_code);
   if ((weather.rain ?? 0) > 0 || hasRain) {
-    checks.push({
-      level: "fail",
-      message: `Pluie ${weather.precipitation} mm`,
-    });
+    checks.push({ level: "fail", message: `Pluie ${weather.precipitation} mm` });
   } else {
     checks.push({ level: "ok", message: "Temps sec" });
   }
 
-  if ((weather.visibility ?? 99999) < VISIBILITY_MIN) {
+  if ((weather.visibility ?? 99999) < THRESHOLDS.VISIBILITY_MIN) {
     checks.push({
       level: "fail",
       message: `Visibilité ${((weather.visibility ?? 0) / 1000).toFixed(1)} km`,
@@ -142,32 +92,17 @@ export function evaluate(site: Site, weather: HourlyWeather): Evaluation {
     });
   }
 
-  if ((weather.cloud_cover ?? 0) > CLOUD_COVER_MAX) {
-    checks.push({
-      level: "warn",
-      message: `Nuages ${weather.cloud_cover}%`,
-    });
+  if ((weather.cloud_cover ?? 0) > THRESHOLDS.CLOUD_COVER_MAX) {
+    checks.push({ level: "warn", message: `Nuages ${weather.cloud_cover}%` });
   } else {
-    checks.push({
-      level: "ok",
-      message: `Nuages ${weather.cloud_cover}%`,
-    });
+    checks.push({ level: "ok", message: `Nuages ${weather.cloud_cover}%` });
   }
 
-  const cloudBase = estimateCloudBase(
-    weather.temperature ?? 15,
-    weather.dew_point ?? 5
-  );
-  if (cloudBase < CLOUD_BASE_MIN) {
-    checks.push({
-      level: "warn",
-      message: `Base nuages ~${cloudBase.toFixed(0)}m AGL`,
-    });
+  const cloudBase = estimateCloudBase(weather.temperature ?? 15, weather.dew_point ?? 5);
+  if (cloudBase < THRESHOLDS.CLOUD_BASE_MIN) {
+    checks.push({ level: "warn", message: `Base nuages ~${cloudBase.toFixed(0)}m AGL` });
   } else {
-    checks.push({
-      level: "ok",
-      message: `Base nuages ~${cloudBase.toFixed(0)}m AGL`,
-    });
+    checks.push({ level: "ok", message: `Base nuages ~${cloudBase.toFixed(0)}m AGL` });
   }
 
   const fails = checks.filter((c) => c.level === "fail").length;

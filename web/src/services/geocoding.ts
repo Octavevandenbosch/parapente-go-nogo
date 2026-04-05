@@ -1,6 +1,5 @@
+import { API } from "../config";
 import type { GeoLocation } from "../types";
-
-const GEOCODING_URL = "/api/geocode/v1/search";
 
 export async function geocode(query: string): Promise<GeoLocation | null> {
   const params = new URLSearchParams({
@@ -10,7 +9,7 @@ export async function geocode(query: string): Promise<GeoLocation | null> {
     format: "json",
   });
 
-  const resp = await fetch(`${GEOCODING_URL}?${params}`);
+  const resp = await fetch(`${API.GEOCODING}?${params}`);
   if (!resp.ok) throw new Error(`Geocoding failed: ${resp.status}`);
 
   const data = await resp.json();
