@@ -1,0 +1,177 @@
+Meteo-Parapente API (Unofficial - extracted from frontend JS)
+================================================================
+
+Base URL: https://data0.meteo-parapente.com
+No authentication needed for non-private (free) forecasts.
+Private forecasts (older days / premium runs) require an X-Auth token from a paid account.
+
+
+1. Status / Available Forecasts
+---------------------------------
+URL:  GET https://data0.meteo-parapente.com/status.php?init={timestamp_ms}
+
+Returns:
+  - List of available model runs per region (currently: "france")
+  - Each entry has: run (model run ID), day (forecast date), private (bool), status
+  - "private": false = free access, "private": true = subscribers only
+  - Also returns app version info and JS bundle hashes
+
+Example:
+  curl "https://data0.meteo-parapente.com/status.php?init=$(date +%s)000"
+
+Response structure:
+  {
+    "france": [
+      { "run": "2026040418", "day": "20260408", "private": false, "status": "complete", "update": "..." },
+      ...
+    ],
+    "app": { "favored": "3.2.0", "minimal": "3.2.0" },
+    "js": { ... },
+    "tos": "2024-01-24T00:00:00Z",
+    "news": []
+  }
+
+
+2. Windgram (Altitude Wind Profile for a Location)
+-----------------------------------------------------
+URL:  GET https://data0.meteo-parapente.com/data.php?run={run}&location={lat},{lon}&date={date}&plot=windgram
+
+Parameters:
+  run      = model run ID from status (e.g. "2026040418")
+  location = latitude,longitude in decimal (e.g. "45.899,6.129")
+  date     = forecast date YYYYMMDD (e.g. "20260408")
+  plot     = "windgram"
+
+Returns hourly data (04:00 to 21:00 UTC) at ~40 altitude levels:
+  z       = altitude levels in meters (array)
+  umet    = u-component of wind in m/s (west-east, array per altitude)
+  vmet    = v-component of wind in m/s (south-north, array per altitude)
+  ter     = terrain elevation in meters
+  pblh    = planetary boundary layer height in meters
+  raintot = total rain accumulation
+  cfracl  = low cloud fraction (%)
+  cfracm  = mid cloud fraction (%)
+  cfrach  = high cloud fraction (%)
+  cldfra  = cloud fraction per altitude level (array)
+  ths     = thermal strength per altitude level (array)
+  thr     = thermal height per altitude level (array)
+
+Example:
+  curl "https://data0.meteo-parapente.com/data.php?run=2026040418&location=45.899,6.129&date=20260408&plot=windgram"
+
+
+3. Sounding (Atmospheric Sounding for a Location at a Specific Hour)
+----------------------------------------------------------------------
+URL:  GET https://data0.meteo-parapente.com/data.php?run={run}&location={lat},{lon}&date={date}&plot=sounding&time={hour}
+
+Parameters:
+  run      = model run ID
+  location = lat,lon
+  date     = YYYYMMDD
+  plot     = "sounding"
+  time     = hour in UTC (e.g. 14)
+
+Returns data for that specific hour:
+  z       = altitude levels (array)
+  umet    = u-component wind (array per altitude)
+  vmet    = v-component wind (array per altitude)
+  ths     = thermal strength (array)
+  thr     = thermal height (array)
+  ter     = terrain elevation
+  tc      = temperature profile (array, degrees C)
+  td      = dewpoint temperature profile (array, degrees C)
+  pblh    = boundary layer height
+  raintot = rain total
+  cfracl  = low cloud fraction
+  cfracm  = mid cloud fraction
+  cfrach  = high cloud fraction
+  cldfra  = cloud fraction profile
+
+Example:
+  curl "https://data0.meteo-parapente.com/data.php?run=2026040418&location=45.899,6.129&date=20260408&plot=sounding&time=14"
+
+
+4. Map Tiles (Weather Overlay Tiles)
+--------------------------------------
+URL pattern:
+  https://{s}.tiles-v1.meteo-parapente.com/tiles/rasp.php/{run}/{date}/france/{layer}/{z}/{x}/{y}/{mode}.png
+
+Parameters:
+  {s}     = subdomain: a, b, or c
+  {run}   = model run ID (e.g. "2026040418")
+  {date}  = date+time as 14 digits YYYYMMDDHHMMSS (e.g. "20260408140000")
+  {layer} = weather layer name (see below)
+  {z}/{x}/{y} = standard web map tile coordinates
+  {mode}  = rendering: "noip" (default), "cbip" (colorblind+interpolated), "cbnn" (colorblind)
+
+Available layers:
+  wind          = wind at surface
+  windsfc       = surface wind
+  windblavg     = boundary layer average wind
+  windbltop     = wind at boundary layer top
+  windalti      = wind at altitude (append altitude: wind1500, wind2000, wind3000, etc.)
+  thermals      = thermal activity (wstar + boundary layer)
+  wstar         = convective velocity (thermal strength)
+  bsratio       = buoyancy/shear ratio
+  pblh          = boundary layer height
+  pbltop        = boundary layer top altitude
+  temp          = temperature
+  tempalti      = temperature at altitude (append: temp1500, temp2000, etc.)
+  raintot       = rain total
+  blwindshear   = boundary layer wind shear
+  cfracalti     = cloud fraction at altitude (append: cfrac1500, cfrac2000, etc.)
+
+NOTE: Tiles may require specific origin/referer or may be CDN-cached.
+      The DATA endpoints (windgram/sounding) are more reliable for programmatic access.
+
+
+5. Location Search (Autocomplete)
+------------------------------------
+URL:  GET https://api-search.meteo-parapente.com/v1/autocomplete?text={query}
+
+No authentication needed.
+
+Example:
+  curl "https://api-search.meteo-parapente.com/v1/autocomplete?text=annecy"
+
+Returns GeoJSON FeatureCollection with matching locations (name, coordinates, etc.)
+
+
+6. Base Map Tiles (no auth needed)
+-------------------------------------
+Shaded relief:  https://{s}.geo.meteo-parapente.com/shaded/{z}/{x}/{y}.png  (max zoom 11)
+OSM labels:     https://{s}.geo.meteo-parapente.com/osm/{z}/{x}/{y}.png     (min zoom 11)
+Airspace:       https://{s}.base-layers.meteo-parapente.com/airspace-v1/{z}/{x}/{y}/tile.png
+
+
+7. Data Field Reference
+--------------------------
+Wind components (umet, vmet):
+  - In m/s, meteorological convention
+  - umet = west-to-east component (positive = from west)
+  - vmet = south-to-north component (positive = from south)
+  - Wind speed = sqrt(umet^2 + vmet^2)
+  - Wind direction = atan2(-umet, -vmet) * 180/pi + 180
+
+Altitudes (z array):
+  - ~40 levels from terrain to ~9000m
+  - Values in meters AMSL
+
+Thermals:
+  - wstar = convective velocity scale (m/s), higher = stronger thermals
+  - bsratio = buoyancy/shear ratio, higher = better organized thermals
+  - pblh = boundary layer height (m AGL), roughly max thermal height
+
+Cloud:
+  - cfracl/cfracm/cfrach = low/mid/high cloud fraction (0-100)
+  - cldfra = cloud fraction per altitude level
+
+
+Notes
+=======
+- Free forecasts: today and tomorrow typically available without auth
+- Older/premium forecasts marked "private": true require subscriber X-Auth token
+- Model runs are typically at 00, 06, 12, 18 UTC (format: YYYYMMDDHH)
+- Region currently limited to "france" in status endpoint
+- Data is from WRF (Weather Research and Forecasting) model
+- Please respect their terms of service: https://portal.meteo-parapente.com/

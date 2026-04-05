@@ -1,0 +1,67 @@
+import type { HourlyWeather } from "../types";
+
+const FORECAST_URL = "/api/meteo/v1/meteofrance";
+
+const HOURLY_PARAMS = [
+  "temperature_2m",
+  "relative_humidity_2m",
+  "dew_point_2m",
+  "precipitation",
+  "rain",
+  "weather_code",
+  "cloud_cover",
+  "visibility",
+  "wind_speed_10m",
+  "wind_direction_10m",
+  "wind_gusts_10m",
+  "pressure_msl",
+];
+
+export async function fetchForecast(
+  lat: number,
+  lng: number,
+  days = 2
+): Promise<HourlyWeather[]> {
+  const params = new URLSearchParams({
+    latitude: lat.toString(),
+    longitude: lng.toString(),
+    hourly: HOURLY_PARAMS.join(","),
+    forecast_days: Math.min(days, 4).toString(),
+    timezone: "auto",
+    wind_speed_unit: "kmh",
+  });
+
+  const resp = await fetch(`${FORECAST_URL}?${params}`);
+  if (!resp.ok) throw new Error(`Open-Meteo failed: ${resp.status}`);
+
+  const data = await resp.json();
+  const hourly = data.hourly;
+  const times: string[] = hourly.time;
+
+  return times.map((t, i) => ({
+    time: t,
+    temperature: hourly.temperature_2m[i],
+    humidity: hourly.relative_humidity_2m[i],
+    dew_point: hourly.dew_point_2m[i],
+    precipitation: hourly.precipitation[i],
+    rain: hourly.rain[i],
+    weather_code: hourly.weather_code[i],
+    cloud_cover: hourly.cloud_cover[i],
+    visibility: hourly.visibility[i],
+    wind_speed: hourly.wind_speed_10m[i],
+    wind_direction: hourly.wind_direction_10m[i],
+    wind_gusts: hourly.wind_gusts_10m[i],
+    pressure: hourly.pressure_msl[i],
+  }));
+}
+
+export function filterFlyableHours(
+  forecasts: HourlyWeather[],
+  startHour = 8,
+  endHour = 19
+): HourlyWeather[] {
+  return forecasts.filter((f) => {
+    const hour = parseInt(f.time.split("T")[1].split(":")[0], 10);
+    return hour >= startHour && hour <= endHour;
+  });
+}

@@ -1,0 +1,109 @@
+FFVL Data Access via SpotAir Proxy
+===================================
+
+All endpoints use POST method to https://data.spotair.mobi
+Authentication is via the X-Spotair-Apikey header.
+Data is returned as JSON.
+Geographic filtering uses a bounding box: nord, sud, est, ouest (decimal lat/lng).
+
+
+1. Weather Stations (Balises) - Live Readings
+----------------------------------------------
+URL:    POST https://data.spotair.mobi/balises/releves-get.php
+Header: X-Spotair-Apikey: dMK0l++8QOSZtBKr4zpq6w==
+Params: nord, sud, est, ouest
+
+Returns: station name, coordinates, altitude, wind direction/speed (min/avg/max),
+temperature, trends, provider info. Updated every few minutes.
+
+
+2. Flying Spots (Sites de Vol)
+-------------------------------
+URL:    POST https://data.spotair.mobi/spots/spots-get.php
+Header: X-Spotair-Apikey: nyBtvIV/HEFiDMzZDwgbUA==
+Params: nord, sud, est, ouest, pratique
+
+pratique values:
+  1 = paragliding
+  2 = hanggliding
+  3 = speedriding
+  4 = kite
+  7 = stunt kite
+  8 = boomerang
+  9 = ice climbing
+  10 = climbing
+
+Returns: spot name, coordinates, altitude, wind orientations (favorable/unfavorable),
+type (takeoff/landing/training slope/winch), status, IPPI level, access info,
+restrictions, descriptions, convention type.
+
+
+3. Webcams
+-----------
+URL:    POST https://data.spotair.mobi/webcams/webcams-get.php
+Header: X-Spotair-Apikey: n5xT2BZ42FtM8kNXlkQ8tA==
+Params: nord, sud, est, ouest
+
+Single webcam detail:
+URL:    POST https://data.spotair.mobi/webcams/webcam-get.php
+Header: X-Spotair-Apikey: n5xT2BZ42FtM8kNXlkQ8tA==
+
+
+4. Snow Data
+-------------
+URL:    POST https://data.spotair.mobi/snow/snow-get.php
+Header: X-Spotair-Apikey: lxr4v+R4Aw8yACn5ptiavA==
+Params: nord, sud, est, ouest
+
+
+5. Search
+----------
+URL:    POST https://data.spotair.mobi/search/item-search.php
+Header: X-Spotair-Apikey: g54+WLrqekxiH3lp/JmrMQ==
+
+
+6. CFD Flight Declaration (Direct FFVL - requires FFVL account)
+-----------------------------------------------------------------
+URL:    POST https://parapente.ffvl.fr/cfdAPI
+Params: name (FFVL username), pass (FFVL password), track (IGC/GPX file)
+
+Returns: flight optimization, score, distance, triangle type, declaration URL.
+
+
+7. License Verification (Direct FFVL - no key needed)
+-------------------------------------------------------
+URL:    GET https://data.ffvl.fr/php/verif_lic2.php?num={license_number}&stru={structure_id}
+
+
+8. SpotAir Icons (Direct - no key needed)
+-------------------------------------------
+Spot icon:    https://www.spotair.mobi/icones/spots/spot.svg.php?p=1&t=1&o=112&s=256
+Balise icon:  https://www.spotair.mobi/icones/balises/balise.svg.php?d=270&v=12&c=g
+Terrain icon: https://data.ffvl.fr/api/?base=terrains&mode=icon&tid={terrain_uid}
+
+
+9. SpotAir Widgets (Embeddable - no key needed)
+-------------------------------------------------
+Map:           https://www.spotair.mobi/widget/map?lat=45.8&lng=6.2&zoom=13&layers=spotpg,wind
+Wind station:  https://www.spotair.mobi/widget/wind/ffvl/{station_id}
+Stations list: https://www.spotair.mobi/widget/wind/list?stations=ffvl/61,romma/72
+Around me:     https://www.spotair.mobi/widget/wind/around
+
+
+Example: Full France Bounding Box
+-----------------------------------
+nord=51.1&sud=41.3&est=9.6&ouest=-5.2
+
+
+Example curl commands
+======================
+
+# Get live weather stations in the Alps:
+curl -X POST "https://data.spotair.mobi/balises/releves-get.php" \
+  -H "X-Spotair-Apikey: dMK0l++8QOSZtBKr4zpq6w==" \
+  -d "nord=46.5&sud=44.5&est=7.0&ouest=5.0"
+
+# Get paragliding spots near Annecy:
+curl -X POST "https://data.spotair.mobi/spots/spots-get.php" \
+  -H "X-Spotair-Apikey: nyBtvIV/HEFiDMzZDwgbUA==" \
+  -d "nord=46.0&sud=45.5&est=6.5&ouest=5.8&pratique=1"
