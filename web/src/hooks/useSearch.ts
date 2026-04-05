@@ -23,6 +23,7 @@ interface SearchResult extends SearchState {
   webcams: Webcam[];
   searchParams: { lat: number; lng: number; radius: number } | null;
   lastForecastUpdate: Date | null;
+  utcOffsetSeconds: number;
 }
 
 export function useSearch() {
@@ -43,6 +44,7 @@ export function useSearch() {
   const [lastBalisesData, setLastBalisesData] = useState<Balise[]>([]);
   const [lastWebcams, setLastWebcams] = useState<Webcam[]>([]);
   const [lastForecastUpdate, setLastForecastUpdate] = useState<Date | null>(null);
+  const [utcOffset, setUtcOffset] = useState(7200);
   const sitesRef = useRef<Site[]>([]);
   const forecastIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -101,6 +103,7 @@ export function useSearch() {
           const key = siteKey(site);
           try {
             const { hourly: forecast, utcOffsetSeconds } = await fetchForecast(site.latitude, site.longitude);
+            setUtcOffset(utcOffsetSeconds);
             const flyable = filterFlyableHours(forecast);
 
             if (site.altitude && site.altitude > 200) {
@@ -198,6 +201,7 @@ export function useSearch() {
     webcams: lastWebcams,
     searchParams: lastSearchParams,
     lastForecastUpdate,
+    utcOffsetSeconds: utcOffset,
   };
 
   return { ...result, search };

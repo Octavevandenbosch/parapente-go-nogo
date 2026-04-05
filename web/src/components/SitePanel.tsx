@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { WindRose } from "./WindRose";
+import { Windgram } from "./Windgram";
 import { API } from "../config";
 import { dirLabel, windDirToCompass } from "../utils/wind";
 import { formatAge } from "../utils/time";
@@ -14,6 +15,7 @@ interface SitePanelProps {
   evaluations: HourlyEvaluation[];
   nearestBalise: Balise | null;
   nearestBaliseDistKm: number | null;
+  utcOffsetSeconds: number;
   onClose: () => void;
 }
 
@@ -50,8 +52,9 @@ function sourceLabel(site: Site): string {
   return site.source === "FFVL / SpotAir" ? "FFVL" : "PGE";
 }
 
-export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistKm, onClose }: SitePanelProps) {
+export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistKm, utcOffsetSeconds, onClose }: SitePanelProps) {
   const [expandedHour, setExpandedHour] = useState<string | null>(null);
+  const [showWindgram, setShowWindgram] = useState(false);
 
   const goCount = evaluations.filter((e) => e.evaluation.verdict === "GO").length;
   const marginalCount = evaluations.filter((e) => e.evaluation.verdict === "MARGINAL").length;
@@ -149,6 +152,23 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
           <span className="summary-marginal">{marginalCount} marginaux</span>
           <span className="summary-nogo">{evaluations.length - goCount - marginalCount} NO-GO</span>
         </div>
+
+        {site.altitude && site.altitude > 200 && (
+          <button
+            className={`wg-toggle ${showWindgram ? "active" : ""}`}
+            onClick={() => setShowWindgram((v) => !v)}
+          >
+            {showWindgram ? "▲ Masquer windgram" : "▼ Windgram altitude"}
+          </button>
+        )}
+        {showWindgram && site.altitude && (
+          <Windgram
+            lat={site.latitude}
+            lon={site.longitude}
+            siteAltitude={site.altitude}
+            utcOffsetSeconds={utcOffsetSeconds}
+          />
+        )}
       </div>
 
       {nearestBalise && bReleve && (() => {
@@ -167,6 +187,11 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
               <div className="balise-wind" style={{ color: speedColor }}>
                 <span className="balise-speed">{bReleve.vmoy}</span>
                 <span className="balise-unit">km/h</span>
+                <svg width={22} height={22} viewBox="0 0 22 22" className="balise-arrow">
+                  <g transform={`translate(11,11) rotate(${bReleve.direction + 90})`}>
+                    <path d="M -7 -4 L 7 0 L -7 4 L -4 0 Z" fill={speedColor} />
+                  </g>
+                </svg>
                 <span className="balise-dir">{dirLabel(bReleve.direction)}</span>
               </div>
               <div className="balise-details">

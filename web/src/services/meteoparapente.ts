@@ -113,6 +113,76 @@ export async function fetchWindgram(
   return result;
 }
 
+export interface FullWindgramData {
+  hours: string[];
+  altitudes: number[];
+  cells: { speed: number; direction: number }[][];
+  terrain: number;
+}
+
+export async function fetchFullWindgram(
+  lat: number,
+  lon: number,
+  dateYYYYMMDD: string,
+  altMax = 4000,
+): Promise<FullWindgramData | null> {
+  try {
+    const entries = await fetchStatus();
+    const run = findBestRun(entries, dateYYYYMMDD);
+    if (!run) return null;
+
+    const url =
+      `${API.MP_DATA}?run=${run}` +
+      `&location=${lat},${lon}` +
+      `&date=${dateYYYYMMDD}` +
+      `&plot=windgram`;
+
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+
+    const json = await resp.json();
+    const hourlyData = json.data;
+    if (!hourlyData) return null;
+
+    const sortedHours = Object.keys(hourlyData).sort();
+    if (!sortedHours.length) return null;
+
+    const firstHour = hourlyData[sortedHours[0]];
+    const allZ: number[] = firstHour.z;
+    const terrain: number = firstHour.ter ?? 0;
+
+    const altIndices: number[] = [];
+    const altitudes: number[] = [];
+    for (let i = 0; i < allZ.length; i++) {
+      if (allZ[i] <= altMax) {
+        altIndices.push(i);
+        altitudes.push(Math.round(allZ[i]));
+      }
+    }
+
+    const cells: { speed: number; direction: number }[][] = [];
+    for (const hourStr of sortedHours) {
+      const hd = hourlyData[hourStr] as Record<string, number[]>;
+      const umet = hd.umet;
+      const vmet = hd.vmet;
+      cells.push(
+        altIndices.map((i) => {
+          const u = umet[i];
+          const v = vmet[i];
+          return {
+            speed: Math.round(Math.sqrt(u * u + v * v) * 3.6),
+            direction: Math.round((Math.atan2(-u, -v) * (180 / Math.PI) + 360) % 360),
+          };
+        }),
+      );
+    }
+
+    return { hours: sortedHours, altitudes, cells, terrain: Math.round(terrain) };
+  } catch {
+    return null;
+  }
+}
+
 export async function enrichWithWindgram(
   forecasts: HourlyWeather[],
   site: Site,

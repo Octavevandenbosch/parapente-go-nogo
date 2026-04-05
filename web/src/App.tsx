@@ -14,7 +14,7 @@ export default function App() {
   const {
     location, sites, siteEvals, siteVerdicts,
     isLoading, error, search, balisesData, webcams, searchParams,
-    lastForecastUpdate,
+    lastForecastUpdate, utcOffsetSeconds,
   } = useSearch();
 
   const { balises, lastUpdate, isRefreshing, refresh, startPolling, reset } = useBaliseRefresh();
@@ -155,6 +155,7 @@ export default function App() {
                 evaluations={selectedEvals}
                 nearestBalise={nearestBalise}
                 nearestBaliseDistKm={nearestBaliseDistKm}
+                utcOffsetSeconds={utcOffsetSeconds}
                 onClose={() => setSelectedSite(null)}
               />
             </div>

@@ -94,14 +94,16 @@ export function WindRose({ orientations, size = 120, currentWind, baliseWind, al
   const r = size / 2 - 18;
 
   const forecastDir = altWind ? windDirToCompass(altWind.direction) : currentWind;
-  const forecastAngle = altWind ? (altWind.direction - 90) : (currentWind ? DIR_TO_ANGLE[currentWind] : null);
+  const forecastAngle = altWind
+    ? (altWind.direction + 90)
+    : (currentWind ? DIR_TO_ANGLE[currentWind] + 180 : null);
   const forecastAlt = altWind?.altitude ?? null;
 
   const meteoVal = forecastDir ? (orientations[forecastDir] ?? 0) : 0;
   const meteoMatch = meteoVal === 2 ? "good" : meteoVal === 1 ? "ok" : "bad";
 
   const baliseCompass = baliseWind ? dirLabel(baliseWind.direction) : null;
-  const baliseAngleSvg = baliseWind ? (baliseWind.direction - 90) : null;
+  const baliseAngleSvg = baliseWind ? (baliseWind.direction + 90) : null;
   const baliseVal = baliseCompass ? (orientations[baliseCompass] ?? 0) : 0;
   const baliseMatch = baliseVal === 2 ? "good" : baliseVal === 1 ? "ok" : "bad";
 
