@@ -1,0 +1,12 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/api/pge/:path*", "destination": "https://www.paragliding.earth/api/:path*" },
+    { "source": "/api/meteo/:path*", "destination": "https://api.open-meteo.com/:path*" },
+    { "source": "/api/geocode/:path*", "destination": "https://geocoding-api.open-meteo.com/:path*" },
+    { "source": "/api/spotair/:path*", "destination": "https://data.spotair.mobi/:path*" },
+    { "source": "/api/mp/:path*", "destination": "https://data0.meteo-parapente.com/:path*" }
+  ]
+}
