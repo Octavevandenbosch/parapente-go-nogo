@@ -7,7 +7,11 @@ import type { Site, Verdict, Balise, Webcam } from "../types";
 
 import "leaflet/dist/leaflet.css";
 
-function createSiteIcon(verdict?: Verdict) {
+const DIR_ANGLES: Record<string, number> = {
+  N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315,
+};
+
+function createSiteIcon(verdict?: Verdict, orientations?: Partial<Record<string, number>>) {
   const color =
     verdict === "GO"
       ? "#22c55e"
@@ -17,17 +21,40 @@ function createSiteIcon(verdict?: Verdict) {
           ? "#ef4444"
           : "#6b7280";
 
+  const s = 52;
+  const cx = s / 2;
+  const cy = s / 2;
+  const dotR = 12;
+  const arcR = s / 2 - 3;
+
+  let sectors = "";
+  if (orientations) {
+    for (const [dir, val] of Object.entries(orientations)) {
+      if ((val ?? 0) < 1) continue;
+      const angle = DIR_ANGLES[dir];
+      if (angle == null) continue;
+      const opacity = val === 2 ? 0.3 : 0.15;
+      const halfSector = (22.5 * Math.PI) / 180;
+      const rad = ((angle - 90) * Math.PI) / 180;
+      const x1 = cx + Math.cos(rad - halfSector) * arcR;
+      const y1 = cy + Math.sin(rad - halfSector) * arcR;
+      const x2 = cx + Math.cos(rad + halfSector) * arcR;
+      const y2 = cy + Math.sin(rad + halfSector) * arcR;
+      sectors += `<path d="M ${cx} ${cy} L ${x1.toFixed(1)} ${y1.toFixed(1)} A ${arcR} ${arcR} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)} Z"
+        fill="${color}" fill-opacity="${opacity}" stroke="${color}" stroke-width="0.5" stroke-opacity="0.5"/>`;
+    }
+  }
+
   return L.divIcon({
     className: "",
-    html: `<div style="
-      width:28px;height:28px;border-radius:50%;
-      background:${color};border:3px solid white;
-      box-shadow:0 2px 6px rgba(0,0,0,.35);
-      display:flex;align-items:center;justify-content:center;
-      color:white;font-weight:700;font-size:11px;
-    ">⛰</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+      ${sectors}
+      <circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${color}" stroke="white" stroke-width="2.5"/>
+      <text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="central"
+        font-size="11" fill="white">⛰</text>
+    </svg>`,
+    iconSize: [s, s],
+    iconAnchor: [cx, cy],
   });
 }
 
@@ -44,28 +71,31 @@ function createBaliseIcon(balise: Balise) {
   const speed = r.vmoy ?? 0;
   const dir = r.direction ?? 0;
   const color = windColor(speed);
-  const arrowRotation = dir + 180;
+
+  const s = 48;
+  const cx = s / 2;
+  const cy = s / 2;
+  const dotR = 14;
+  const coneLen = s / 2 - 2;
+
+  const goesRad = ((dir + 90) * Math.PI) / 180;
+  const half = (25 * Math.PI) / 180;
+  const x1 = cx + Math.cos(goesRad - half) * coneLen;
+  const y1 = cy + Math.sin(goesRad - half) * coneLen;
+  const x2 = cx + Math.cos(goesRad + half) * coneLen;
+  const y2 = cy + Math.sin(goesRad + half) * coneLen;
 
   return L.divIcon({
     className: "",
-    html: `<div style="
-      position:relative;width:36px;height:36px;
-    ">
-      <div style="
-        width:36px;height:36px;border-radius:50%;
-        background:${color}22;border:2px solid ${color};
-        display:flex;align-items:center;justify-content:center;
-        color:${color};font-weight:700;font-size:11px;
-        backdrop-filter:blur(4px);
-      ">${speed}</div>
-      <div style="
-        position:absolute;top:-6px;left:50%;
-        transform:translateX(-50%) rotate(${arrowRotation}deg);
-        font-size:12px;color:${color};
-      ">▲</div>
-    </div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    html: `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+      <path d="M ${cx} ${cy} L ${x1.toFixed(1)} ${y1.toFixed(1)} A ${coneLen} ${coneLen} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)} Z"
+        fill="${color}" fill-opacity="0.25" stroke="${color}" stroke-width="1" stroke-opacity="0.5"/>
+      <circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${color}18" stroke="${color}" stroke-width="2"/>
+      <text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="central"
+        font-size="11" font-weight="700" fill="${color}">${speed}</text>
+    </svg>`,
+    iconSize: [s, s],
+    iconAnchor: [cx, cy],
   });
 }
 
@@ -205,7 +235,7 @@ export function SiteMap({
           <Marker
             key={key}
             position={[site.latitude, site.longitude]}
-            icon={createSiteIcon(verdict)}
+            icon={createSiteIcon(verdict, site.orientations)}
             opacity={isSelected ? 1 : 0.85}
             eventHandlers={{ click: () => onSelectSite(site) }}
           >
