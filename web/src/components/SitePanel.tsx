@@ -44,12 +44,18 @@ function siteSourceUrl(site: Site): string {
   if (site.source === "FFVL / SpotAir" && site.ffvl_id) {
     return API.FFVL_TERRAIN_URL(site.ffvl_id);
   }
+  if (site.source === "FFVL / SpotAir" && site.pge_link) {
+    return site.pge_link;
+  }
   if (site.source === "FFVL / SpotAir") return API.SPOTAIR_BASE_URL;
   return site.pge_link || API.PGE_BASE_URL;
 }
 
 function sourceLabel(site: Site): string {
-  return site.source === "FFVL / SpotAir" ? "FFVL" : "PGE";
+  if (site.source === "FFVL / SpotAir") {
+    return site.ffvl_id ? "FFVL" : "SpotAir";
+  }
+  return "PGE";
 }
 
 export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistKm, utcOffsetSeconds, onClose }: SitePanelProps) {
@@ -67,6 +73,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
   }
 
   const meteoUrl = `https://open-meteo.com/en/docs/meteofrance-api#latitude=${site.latitude}&longitude=${site.longitude}&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,precipitation,rain,weather_code,cloud_cover,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&wind_speed_unit=kmh&timezone=auto&forecast_days=2`;
+  const mpUrl = `${API.MP_BASE_URL}/#/${site.latitude},${site.longitude},12`;
   const siteUrl = siteSourceUrl(site);
 
   const bReleve = nearestBalise?.releves?.[0];
@@ -92,7 +99,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
               <a href={siteUrl} target="_blank" rel="noopener noreferrer"
                 className={`source-pill ${site.source === "FFVL / SpotAir" ? "source-ffvl" : "source-pge"}`}
                 style={{ textDecoration: "none" }}>
-                {site.source === "FFVL / SpotAir" ? "FFVL" : "ParaglidingEarth"} ↗
+                {sourceLabel(site)} ↗
               </a>
             </div>
           </div>
@@ -167,7 +174,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
           );
         })()}
 
-        {site.altitude && site.altitude > 200 && (
+        {site.altitude && (
           <button
             className={`wg-toggle ${showWindgram ? "active" : ""}`}
             onClick={() => setShowWindgram((v) => !v)}
@@ -318,7 +325,7 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
                               <span className="wc-value">
                                 {ev.weather.wind_speed_alt.toFixed(0)} km/h {windDirToCompass(ev.weather.wind_direction_alt ?? 0)}
                               </span>
-                              <SourceLink href={API.MP_BASE_URL} label="Météo-Parapente" />
+                              <SourceLink href={mpUrl} label="Météo-Parapente" />
                             </div>
                           )}
                           {(() => {
@@ -360,7 +367,9 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
                         <div key={i} className="check-line">
                           <CheckIcon level={check.level} />
                           <span>{check.message}</span>
-                          {check.message.includes("Base nuages") ? (
+                          {check.message.includes("altitude déco") ? (
+                            <SourceLink href={mpUrl} label="Météo-Parapente" />
+                          ) : check.message.includes("Base nuages") ? (
                             <SourceLink href={meteoUrl} label="calculé" />
                           ) : (
                             <SourceLink href={meteoUrl} label="MF AROME" />

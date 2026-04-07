@@ -188,7 +188,7 @@ export async function enrichWithWindgram(
   site: Site,
   utcOffsetSeconds: number,
 ): Promise<void> {
-  if (!site.altitude || site.altitude <= 200) return;
+  if (!site.altitude) return;
 
   const dates = new Set<string>();
   for (const f of forecasts) {

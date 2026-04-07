@@ -59,7 +59,7 @@ export async function fetchSpotairSites(
 
   for (const spot of spots) {
     const name =
-      spot.noms?.fr ?? spot.noms?.[spot.noms.primary] ?? spot.nom ?? "Sans nom";
+      spot.noms?.fr ?? spot.noms?.[spot.noms.primary] ?? spot.noms?.en ?? spot.nom ?? "Sans nom";
 
     if (spot.type === 2) {
       const desc =

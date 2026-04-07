@@ -113,18 +113,21 @@ export function useSearch() {
             flyable = generatePlaceholderForecast();
           }
 
-          if (site.altitude && site.altitude > 200) {
+          if (site.altitude) {
             try {
               await enrichWithWindgram(flyable, site, offsetSeconds);
             } catch { /* windgram is best-effort */ }
           }
 
-          const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => ({
-            weather: w,
-            evaluation: w.forecastAvailable !== false
-              ? evaluate(site, w)
-              : { verdict: "NO-GO" as const, checks: [], cloud_base: 0, wind_compass: "--" },
-          }));
+          const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => {
+            const full = evaluate(site, w);
+            if (w.forecastAvailable !== false) return { weather: w, evaluation: full };
+            const altChecks = full.checks.filter((c) => c.message.includes("altitude déco"));
+            return {
+              weather: w,
+              evaluation: { ...full, verdict: "NO-GO" as const, checks: altChecks },
+            };
+          });
           newEvals.set(key, hourlyEvals);
           newVerdicts.set(key, currentHourVerdict(hourlyEvals));
         })
@@ -171,18 +174,21 @@ export function useSearch() {
           flyable = generatePlaceholderForecast();
         }
 
-        if (site.altitude && site.altitude > 200) {
+        if (site.altitude) {
           try {
             await enrichWithWindgram(flyable, site, offsetSeconds);
           } catch { /* windgram is best-effort */ }
         }
 
-        const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => ({
-          weather: w,
-          evaluation: w.forecastAvailable !== false
-            ? evaluate(site, w)
-            : { verdict: "NO-GO" as const, checks: [], cloud_base: 0, wind_compass: "--" },
-        }));
+        const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => {
+          const full = evaluate(site, w);
+          if (w.forecastAvailable !== false) return { weather: w, evaluation: full };
+          const altChecks = full.checks.filter((c) => c.message.includes("altitude déco"));
+          return {
+            weather: w,
+            evaluation: { ...full, verdict: "NO-GO" as const, checks: altChecks },
+          };
+        });
         newEvals.set(key, hourlyEvals);
         newVerdicts.set(key, currentHourVerdict(hourlyEvals));
       })
