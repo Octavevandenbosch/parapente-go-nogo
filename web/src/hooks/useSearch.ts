@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { geocode } from "../services/geocoding";
 import { fetchSites } from "../services/sites";
 import { fetchSpotairSites, fetchBalises, fetchWebcams } from "../services/spotair";
-import { fetchForecast, filterFlyableHours } from "../services/weather";
+import { fetchForecast, filterFlyableHours, generatePlaceholderForecast } from "../services/weather";
 import { enrichWithWindgram } from "../services/meteoparapente";
 import { evaluate } from "../services/gonogo";
 import { siteKey, deduplicateSites } from "../utils/geo";
@@ -101,25 +101,32 @@ export function useSearch() {
       await Promise.all(
         allSites.map(async (site) => {
           const key = siteKey(site);
+          let flyable: import("../types").HourlyWeather[];
+          let offsetSeconds = 7200;
+
           try {
             const { hourly: forecast, utcOffsetSeconds } = await fetchForecast(site.latitude, site.longitude);
+            offsetSeconds = utcOffsetSeconds;
             setUtcOffset(utcOffsetSeconds);
-            const flyable = filterFlyableHours(forecast);
-
-            if (site.altitude && site.altitude > 200) {
-              await enrichWithWindgram(flyable, site, utcOffsetSeconds);
-            }
-
-            const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => ({
-              weather: w,
-              evaluation: evaluate(site, w),
-            }));
-            newEvals.set(key, hourlyEvals);
-            newVerdicts.set(key, currentHourVerdict(hourlyEvals));
+            flyable = filterFlyableHours(forecast);
           } catch {
-            newEvals.set(key, []);
-            newVerdicts.set(key, "NO-GO");
+            flyable = generatePlaceholderForecast();
           }
+
+          if (site.altitude && site.altitude > 200) {
+            try {
+              await enrichWithWindgram(flyable, site, offsetSeconds);
+            } catch { /* windgram is best-effort */ }
+          }
+
+          const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => ({
+            weather: w,
+            evaluation: w.forecastAvailable !== false
+              ? evaluate(site, w)
+              : { verdict: "NO-GO" as const, checks: [], cloud_base: 0, wind_compass: "--" },
+          }));
+          newEvals.set(key, hourlyEvals);
+          newVerdicts.set(key, currentHourVerdict(hourlyEvals));
         })
       );
 
@@ -153,24 +160,31 @@ export function useSearch() {
     await Promise.all(
       sites.map(async (site) => {
         const key = siteKey(site);
+        let flyable: import("../types").HourlyWeather[];
+        let offsetSeconds = 7200;
+
         try {
           const { hourly: forecast, utcOffsetSeconds } = await fetchForecast(site.latitude, site.longitude);
-          const flyable = filterFlyableHours(forecast);
-
-          if (site.altitude && site.altitude > 200) {
-            await enrichWithWindgram(flyable, site, utcOffsetSeconds);
-          }
-
-          const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => ({
-            weather: w,
-            evaluation: evaluate(site, w),
-          }));
-          newEvals.set(key, hourlyEvals);
-          newVerdicts.set(key, currentHourVerdict(hourlyEvals));
+          offsetSeconds = utcOffsetSeconds;
+          flyable = filterFlyableHours(forecast);
         } catch {
-          newEvals.set(key, []);
-          newVerdicts.set(key, "NO-GO");
+          flyable = generatePlaceholderForecast();
         }
+
+        if (site.altitude && site.altitude > 200) {
+          try {
+            await enrichWithWindgram(flyable, site, offsetSeconds);
+          } catch { /* windgram is best-effort */ }
+        }
+
+        const hourlyEvals: HourlyEvaluation[] = flyable.map((w) => ({
+          weather: w,
+          evaluation: w.forecastAvailable !== false
+            ? evaluate(site, w)
+            : { verdict: "NO-GO" as const, checks: [], cloud_base: 0, wind_compass: "--" },
+        }));
+        newEvals.set(key, hourlyEvals);
+        newVerdicts.set(key, currentHourVerdict(hourlyEvals));
       })
     );
 

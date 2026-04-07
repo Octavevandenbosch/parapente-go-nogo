@@ -5,7 +5,6 @@ import {
 import { useState } from "react";
 import { WindRose } from "./WindRose";
 import { Windgram } from "./Windgram";
-import { WindFallback } from "./WindFallback";
 import { API } from "../config";
 import { dirLabel, windDirToCompass } from "../utils/wind";
 import { formatAge } from "../utils/time";
@@ -148,41 +147,41 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
           </div>
         )}
 
-        {evaluations.length > 0 ? (
-          <div className="site-summary">
-            <span className="summary-go">{goCount} créneaux GO</span>
-            <span className="summary-marginal">{marginalCount} marginaux</span>
-            <span className="summary-nogo">{evaluations.length - goCount - marginalCount} NO-GO</span>
-          </div>
-        ) : (
-          <div className="site-summary-empty">
-            ⚠ Prévisions Open-Meteo indisponibles — données vent Météo-Parapente ci-dessous.
-          </div>
-        )}
+        {(() => {
+          const available = evaluations.filter((e) => e.weather.forecastAvailable !== false);
+          const hasWindgram = evaluations.some((e) => e.weather.wind_speed_alt != null);
+          if (available.length > 0) {
+            return (
+              <div className="site-summary">
+                <span className="summary-go">{goCount} créneaux GO</span>
+                <span className="summary-marginal">{marginalCount} marginaux</span>
+                <span className="summary-nogo">{available.length - goCount - marginalCount} NO-GO</span>
+              </div>
+            );
+          }
+          return (
+            <div className="site-summary-empty">
+              ⚠ Prévisions Météo-France (Open-Meteo) indisponibles
+              {hasWindgram && " — vent altitude (Météo-Parapente) disponible ci-dessous"}
+            </div>
+          );
+        })()}
 
         {site.altitude && site.altitude > 200 && (
-          <>
-            {evaluations.length > 0 && (
-              <button
-                className={`wg-toggle ${showWindgram ? "active" : ""}`}
-                onClick={() => setShowWindgram((v) => !v)}
-              >
-                {showWindgram ? "▲ Masquer windgram" : "▼ Windgram altitude"}
-              </button>
-            )}
-            {(showWindgram || evaluations.length === 0) && (
-              <Windgram
-                lat={site.latitude}
-                lon={site.longitude}
-                siteAltitude={site.altitude}
-                utcOffsetSeconds={utcOffsetSeconds}
-              />
-            )}
-          </>
+          <button
+            className={`wg-toggle ${showWindgram ? "active" : ""}`}
+            onClick={() => setShowWindgram((v) => !v)}
+          >
+            {showWindgram ? "▲ Masquer windgram" : "▼ Windgram altitude"}
+          </button>
         )}
-
-        {evaluations.length === 0 && site.altitude && site.altitude > 200 && (
-          <WindFallback site={site} utcOffsetSeconds={utcOffsetSeconds} />
+        {showWindgram && site.altitude && (
+          <Windgram
+            lat={site.latitude}
+            lon={site.longitude}
+            siteAltitude={site.altitude}
+            utcOffsetSeconds={utcOffsetSeconds}
+          />
         )}
       </div>
 
@@ -246,30 +245,50 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
                   >
                     <span className="hour-time">{hour}</span>
                     <div className="hour-metrics">
-                      <span title="Vent à 10m sol (Météo-France AROME)">
-                        <Wind size={13} /> {ev.weather.wind_speed.toFixed(0)}
-                      </span>
-                      <span title="Rafales à 10m sol (Météo-France AROME)">↑{ev.weather.wind_gusts.toFixed(0)}</span>
-                      <span title="Direction à 10m sol (Météo-France AROME)">{ev.evaluation.wind_compass}</span>
+                      {ev.weather.forecastAvailable !== false ? (
+                        <>
+                          <span title="Vent à 10m sol (Météo-France AROME)">
+                            <Wind size={13} /> {ev.weather.wind_speed.toFixed(0)}
+                          </span>
+                          <span title="Rafales à 10m sol (Météo-France AROME)">↑{ev.weather.wind_gusts.toFixed(0)}</span>
+                          <span title="Direction à 10m sol (Météo-France AROME)">{ev.evaluation.wind_compass}</span>
+                        </>
+                      ) : (
+                        <span className="na-label" title="Open-Meteo indisponible">
+                          <Wind size={13} /> N/A
+                        </span>
+                      )}
                       {ev.weather.wind_speed_alt != null && (
                         <span className="alt-wind-badge" title={`Vent altitude déco ~${ev.weather.wind_alt_meters}m (Météo-Parapente WRF)`}>
                           ▲{ev.weather.wind_speed_alt.toFixed(0)} {windDirToCompass(ev.weather.wind_direction_alt ?? 0)}
                         </span>
                       )}
-                      <span title="Pluie (Météo-France AROME)">
-                        <Droplets size={13} /> {ev.weather.rain > 0 ? `${ev.weather.rain.toFixed(1)}` : "—"}
-                      </span>
-                      <span title="Nuages (Météo-France AROME)">
-                        <Cloud size={13} /> {ev.weather.cloud_cover}%
-                      </span>
-                      <span title="Température (Météo-France AROME)">
-                        <Thermometer size={13} /> {ev.weather.temperature.toFixed(0)}°
-                      </span>
-                      <span title="Visibilité (Météo-France AROME)">
-                        <Eye size={13} /> {((ev.weather.visibility ?? 99999) / 1000).toFixed(0)}km
-                      </span>
+                      {ev.weather.forecastAvailable !== false ? (
+                        <>
+                          <span title="Pluie (Météo-France AROME)">
+                            <Droplets size={13} /> {ev.weather.rain > 0 ? `${ev.weather.rain.toFixed(1)}` : "—"}
+                          </span>
+                          <span title="Nuages (Météo-France AROME)">
+                            <Cloud size={13} /> {ev.weather.cloud_cover}%
+                          </span>
+                          <span title="Température (Météo-France AROME)">
+                            <Thermometer size={13} /> {ev.weather.temperature.toFixed(0)}°
+                          </span>
+                          <span title="Visibilité (Météo-France AROME)">
+                            <Eye size={13} /> {((ev.weather.visibility ?? 99999) / 1000).toFixed(0)}km
+                          </span>
+                        </>
+                      ) : (
+                        !ev.weather.wind_speed_alt && (
+                          <span className="na-label">Météo indisponible</span>
+                        )
+                      )}
                     </div>
-                    <VerdictBadge verdict={ev.evaluation.verdict} />
+                    {ev.weather.forecastAvailable !== false ? (
+                      <VerdictBadge verdict={ev.evaluation.verdict} />
+                    ) : (
+                      <span className="verdict-badge badge-na">N/A</span>
+                    )}
                     {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </button>
                   {isExpanded && (

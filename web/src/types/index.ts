@@ -62,6 +62,7 @@ export interface HourlyWeather {
   wind_speed_alt?: number;
   wind_direction_alt?: number;
   wind_alt_meters?: number;
+  forecastAvailable?: boolean;
 }
 
 export type CheckLevel = "ok" | "warn" | "fail";

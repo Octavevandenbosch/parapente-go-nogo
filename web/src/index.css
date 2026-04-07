@@ -753,6 +753,20 @@ body {
   line-height: 1.5;
 }
 
+.na-label {
+  color: #64748b;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.badge-na {
+  background: #334155 !important;
+  color: #94a3b8 !important;
+  font-style: italic;
+}
+
 /* Balise panel */
 /* ── Windgram toggle & chart ── */
 .wg-toggle {
@@ -846,103 +860,6 @@ body {
   height: 8px;
   border-radius: 2px;
   display: inline-block;
-}
-
-/* ── Wind Fallback (Météo-Parapente hourly) ── */
-.wf-container {
-  border-bottom: 1px solid var(--border);
-}
-
-.wf-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px 4px;
-}
-
-.wf-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #a78bfa;
-}
-
-.wf-source {
-  font-size: 10px;
-  color: #64748b;
-}
-
-.wf-day {
-  padding: 0 8px;
-}
-
-.wf-day-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  padding: 8px 8px 4px;
-  text-transform: capitalize;
-}
-
-.wf-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  font-size: 12px;
-  border-radius: 4px;
-  margin: 1px 0;
-}
-
-.wf-ok { background: rgba(34, 197, 94, 0.06); }
-.wf-warn { background: rgba(245, 158, 11, 0.08); }
-.wf-fail { background: rgba(239, 68, 68, 0.08); }
-
-.wf-hour {
-  font-weight: 700;
-  color: #94a3b8;
-  min-width: 28px;
-}
-
-.wf-speed {
-  font-weight: 600;
-  color: #e2e8f0;
-  min-width: 60px;
-}
-
-.wf-dir {
-  color: #94a3b8;
-  min-width: 70px;
-  font-size: 11px;
-}
-
-.wf-alt {
-  color: #64748b;
-  font-size: 10px;
-  min-width: 40px;
-}
-
-.wf-check {
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.wf-check-ok { color: #22c55e; }
-.wf-check-warn { color: #f59e0b; }
-.wf-check-fail { color: #ef4444; }
-
-.wf-notice {
-  padding: 8px 16px;
-  font-size: 10px;
-  color: #64748b;
-  font-style: italic;
-  border-top: 1px solid var(--border);
-}
-
-.wf-status {
-  padding: 16px;
-  text-align: center;
-  color: #94a3b8;
-  font-size: 13px;
 }
 
 .balise-panel {

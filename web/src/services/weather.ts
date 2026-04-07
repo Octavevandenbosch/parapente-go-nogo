@@ -43,7 +43,7 @@ export async function fetchForecast(
   const times: string[] = hourly.time;
   const utcOffsetSeconds: number = data.utc_offset_seconds ?? 0;
 
-  const hours = times.map((t, i) => ({
+  const hours: HourlyWeather[] = times.map((t, i) => ({
     time: t,
     temperature: hourly.temperature_2m[i],
     humidity: hourly.relative_humidity_2m[i],
@@ -57,9 +57,46 @@ export async function fetchForecast(
     wind_direction: hourly.wind_direction_10m[i],
     wind_gusts: hourly.wind_gusts_10m[i],
     pressure: hourly.pressure_msl[i],
+    forecastAvailable: true,
   }));
 
   return { hourly: hours, utcOffsetSeconds };
+}
+
+export function generatePlaceholderForecast(
+  days = TIMING.FORECAST_DAYS,
+  startHour = TIMING.FLYABLE_START_HOUR,
+  endHour = TIMING.FLYABLE_END_HOUR,
+): HourlyWeather[] {
+  const hours: HourlyWeather[] = [];
+  const now = new Date();
+
+  for (let d = 0; d < days; d++) {
+    const date = new Date(now);
+    date.setDate(date.getDate() + d);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+    for (let h = startHour; h <= endHour; h++) {
+      hours.push({
+        time: `${dateStr}T${String(h).padStart(2, "0")}:00`,
+        temperature: 0,
+        humidity: 0,
+        dew_point: 0,
+        precipitation: 0,
+        rain: 0,
+        weather_code: 0,
+        cloud_cover: 0,
+        visibility: 0,
+        wind_speed: 0,
+        wind_direction: 0,
+        wind_gusts: 0,
+        pressure: 0,
+        forecastAvailable: false,
+      });
+    }
+  }
+
+  return hours;
 }
 
 export function filterFlyableHours(
