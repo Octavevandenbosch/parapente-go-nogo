@@ -5,6 +5,7 @@ import {
 import { useState } from "react";
 import { WindRose } from "./WindRose";
 import { Windgram } from "./Windgram";
+import { WindFallback } from "./WindFallback";
 import { API } from "../config";
 import { dirLabel, windDirToCompass } from "../utils/wind";
 import { formatAge } from "../utils/time";
@@ -147,27 +148,41 @@ export function SitePanel({ site, evaluations, nearestBalise, nearestBaliseDistK
           </div>
         )}
 
-        <div className="site-summary">
-          <span className="summary-go">{goCount} créneaux GO</span>
-          <span className="summary-marginal">{marginalCount} marginaux</span>
-          <span className="summary-nogo">{evaluations.length - goCount - marginalCount} NO-GO</span>
-        </div>
+        {evaluations.length > 0 ? (
+          <div className="site-summary">
+            <span className="summary-go">{goCount} créneaux GO</span>
+            <span className="summary-marginal">{marginalCount} marginaux</span>
+            <span className="summary-nogo">{evaluations.length - goCount - marginalCount} NO-GO</span>
+          </div>
+        ) : (
+          <div className="site-summary-empty">
+            ⚠ Prévisions Open-Meteo indisponibles — données vent Météo-Parapente ci-dessous.
+          </div>
+        )}
 
         {site.altitude && site.altitude > 200 && (
-          <button
-            className={`wg-toggle ${showWindgram ? "active" : ""}`}
-            onClick={() => setShowWindgram((v) => !v)}
-          >
-            {showWindgram ? "▲ Masquer windgram" : "▼ Windgram altitude"}
-          </button>
+          <>
+            {evaluations.length > 0 && (
+              <button
+                className={`wg-toggle ${showWindgram ? "active" : ""}`}
+                onClick={() => setShowWindgram((v) => !v)}
+              >
+                {showWindgram ? "▲ Masquer windgram" : "▼ Windgram altitude"}
+              </button>
+            )}
+            {(showWindgram || evaluations.length === 0) && (
+              <Windgram
+                lat={site.latitude}
+                lon={site.longitude}
+                siteAltitude={site.altitude}
+                utcOffsetSeconds={utcOffsetSeconds}
+              />
+            )}
+          </>
         )}
-        {showWindgram && site.altitude && (
-          <Windgram
-            lat={site.latitude}
-            lon={site.longitude}
-            siteAltitude={site.altitude}
-            utcOffsetSeconds={utcOffsetSeconds}
-          />
+
+        {evaluations.length === 0 && site.altitude && site.altitude > 200 && (
+          <WindFallback site={site} utcOffsetSeconds={utcOffsetSeconds} />
         )}
       </div>
 
